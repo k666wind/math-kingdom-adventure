@@ -206,6 +206,22 @@ export const BattleScreen: React.FC = () => {
           ))}
         </div>
 
+        {/* Drop rewards */}
+        {battle.drops && battle.drops.length > 0 && (
+          <div className="w-full rounded-2xl p-4 mb-4 text-center"
+            style={{ background: 'rgba(255,230,109,0.15)', border: '1px solid rgba(255,230,109,0.4)' }}>
+            <div className="font-fredoka text-sm mb-2" style={{ color: '#FFE66D' }}>✨ Item Drop!</div>
+            <div className="flex flex-wrap justify-center gap-2">
+              {battle.drops.map((id, i) => (
+                <span key={i} className="font-nunito text-xs rounded-full px-3 py-1"
+                  style={{ background: 'rgba(255,230,109,0.25)', color: '#FFE66D', border: '1px solid rgba(255,230,109,0.5)' }}>
+                  {id === 'crystal' ? '💎 Crystal' : `🎁 ${id.replace(/_/g, ' ')}`}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
         <button onClick={handleContinue}
           className="w-full text-white font-fredoka text-lg py-4 rounded-2xl mb-3 active:scale-95 transition-transform"
           style={{ background: '#FF6B35' }}>

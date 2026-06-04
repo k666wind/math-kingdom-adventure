@@ -294,6 +294,7 @@ export const useGameStore = create<GameStore>()(
           status: 'question',
           lastAnswerCorrect: null,
           timerBonus: speedBonus + player.speedBonus,
+          drops: [],
         }
         set({ battle, nav: { screen: 'battle', regionId, battleId } })
       },
@@ -463,6 +464,31 @@ export const useGameStore = create<GameStore>()(
               },
             },
           }
+          // ── Boss drop processing ──────────────────────────────
+          const drops: string[] = []
+          if (battle.monster.dropTable && battle.monster.dropTable.length > 0) {
+            for (const drop of battle.monster.dropTable) {
+              if (Math.random() < drop.dropChance) {
+                if (drop.itemType === 'equipment') {
+                  if (!newPlayer.ownedEquipment.includes(drop.itemId)) {
+                    newPlayer = { ...newPlayer, ownedEquipment: [...newPlayer.ownedEquipment, drop.itemId] }
+                    drops.push(drop.itemId)
+                  }
+                } else if (drop.itemType === 'pet_egg') {
+                  // Strip _egg suffix to get pet id (e.g. wise_owl_egg → wise_owl)
+                  const petId = drop.itemId.replace(/_egg$/, '')
+                  if (!newPlayer.ownedPets.includes(petId)) {
+                    newPlayer = { ...newPlayer, ownedPets: [...newPlayer.ownedPets, petId] }
+                    drops.push(petId)
+                  }
+                } else if (drop.itemType === 'crystal') {
+                  newPlayer = { ...newPlayer, crystals: newPlayer.crystals + 1 }
+                  drops.push('crystal')
+                }
+              }
+            }
+          }
+
           const { player: levelled, levelUps } = processLevelUp(newPlayer)
 
           // Update daily challenge: monsters_defeated + perfect_battle
@@ -477,7 +503,7 @@ export const useGameStore = create<GameStore>()(
             })
             return {
               player: levelled,
-              battle: s.battle ? { ...s.battle, status: 'victory' } : null,
+              battle: s.battle ? { ...s.battle, status: 'victory', drops } : null,
               pendingLevelUps: [...s.pendingLevelUps, ...levelUps],
               dailyChallenges: updatedChallenges,
               todayStats: {

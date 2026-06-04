@@ -975,6 +975,260 @@ export function generateWorded2Step(diff: DifficultyLevel): Question {
 }
 
 // ─────────────────────────────────────────────
+// COORDINATES
+// ─────────────────────────────────────────────
+
+export function generateCoordinates(diff: DifficultyLevel): Question {
+  const templates = [
+    () => {
+      // Read a coordinate point
+      const x = diff === 'bronze' ? rand(0, 5) : diff === 'silver' ? rand(-5, 10) : rand(-10, 10)
+      const y = diff === 'bronze' ? rand(0, 5) : diff === 'silver' ? rand(-5, 10) : rand(-10, 10)
+      const correct = `(${x}, ${y})`
+      const { answers, correctIndex } = buildMCQ(correct, [
+        `(${y}, ${x})`, `(${x + 1}, ${y})`, `(${x}, ${y + 1})`,
+      ])
+      return {
+        text: `A point is plotted at x = ${x} and y = ${y}. What are its coordinates?`,
+        correct, answers, correctIndex,
+        explanation: `Coordinates are always written as (x, y), so the answer is (${x}, ${y}).`,
+      }
+    },
+    () => {
+      // Find missing coordinate
+      const x1 = rand(1, 8), y1 = rand(1, 8)
+      const x2 = rand(1, 8)
+      const correct = String(y1) // horizontal line, same y
+      const { answers, correctIndex } = buildMCQ(correct, [
+        String(y1 + 1), String(y1 - 1), String(x2),
+      ])
+      return {
+        text: `Points A (${x1}, ${y1}) and B (${x2}, ?) lie on a horizontal line. What is the y-coordinate of B?`,
+        correct, answers, correctIndex,
+        explanation: `On a horizontal line, the y-coordinate is the same for all points. So the y-coordinate of B is ${correct}.`,
+      }
+    },
+    () => {
+      // Midpoint of two coordinates
+      const x1 = rand(0, 8) * 2, y1 = rand(0, 8) * 2
+      const x2 = rand(0, 8) * 2, y2 = rand(0, 8) * 2
+      const mx = (x1 + x2) / 2, my = (y1 + y2) / 2
+      const correct = `(${mx}, ${my})`
+      const { answers, correctIndex } = buildMCQ(correct, [
+        `(${mx + 1}, ${my})`, `(${mx}, ${my + 1})`, `(${x1}, ${y2})`,
+      ])
+      return {
+        text: `What is the midpoint of (${x1}, ${y1}) and (${x2}, ${y2})?`,
+        correct, answers, correctIndex,
+        explanation: `Midpoint = ((${x1}+${x2})/2, (${y1}+${y2})/2) = (${mx}, ${my})`,
+      }
+    },
+    () => {
+      // Translation
+      const x = rand(1, 6), y = rand(1, 6)
+      const dx = rand(1, 4) * (Math.random() < 0.5 ? 1 : -1)
+      const dy = rand(1, 4) * (Math.random() < 0.5 ? 1 : -1)
+      const nx = x + dx, ny = y + dy
+      const correct = `(${nx}, ${ny})`
+      const { answers, correctIndex } = buildMCQ(correct, [
+        `(${x - dx}, ${ny})`, `(${nx}, ${y - dy})`, `(${x + dy}, ${y + dx})`,
+      ])
+      const dxStr = dx >= 0 ? `right ${dx}` : `left ${Math.abs(dx)}`
+      const dyStr = dy >= 0 ? `up ${dy}` : `down ${Math.abs(dy)}`
+      return {
+        text: `Point P is at (${x}, ${y}). It moves ${dxStr} and ${dyStr}. What are its new coordinates?`,
+        correct, answers, correctIndex,
+        explanation: `New x = ${x} + (${dx}) = ${nx}. New y = ${y} + (${dy}) = ${ny}. New coordinates: (${nx}, ${ny})`,
+      }
+    },
+  ]
+
+  const result = templates[rand(0, templates.length - 1)]()
+  return {
+    id: qid(), tier: 'Y6', type: 'coordinates', difficulty: diff,
+    questionText: result.text,
+    answers: result.answers, correctIndex: result.correctIndex,
+    explanation: result.explanation,
+    timeLimitSeconds: timeLimit('Y6', diff, 18),
+  }
+}
+
+// ─────────────────────────────────────────────
+// PROBABILITY
+// ─────────────────────────────────────────────
+
+export function generateProbability(diff: DifficultyLevel): Question {
+  const templates = [
+    () => {
+      // Simple probability as fraction
+      const total = diff === 'bronze' ? rand(2, 6) : diff === 'silver' ? rand(4, 10) : rand(5, 12)
+      const favourable = rand(1, total - 1)
+      const correct = `${favourable}/${total}`
+      const { answers, correctIndex } = buildMCQ(correct, [
+        `${total - favourable}/${total}`, `${favourable}/${total + 1}`, `${favourable + 1}/${total}`,
+      ])
+      return {
+        text: `A bag contains ${total} balls, ${favourable} of which are red. What is the probability of picking a red ball?`,
+        correct, answers, correctIndex,
+        explanation: `Probability = favourable outcomes ÷ total outcomes = ${favourable}/${total}`,
+      }
+    },
+    () => {
+      // Probability as percentage
+      const total = [4, 5, 10, 20][rand(0, 3)]
+      const favourable = rand(1, total - 1)
+      const pct = Math.round((favourable / total) * 100)
+      const correct = `${pct}%`
+      const { answers, correctIndex } = buildMCQ(correct, [
+        `${100 - pct}%`, `${pct + 10}%`, `${pct - 10 > 0 ? pct - 10 : pct + 5}%`,
+      ])
+      return {
+        text: `${favourable} out of ${total} students walk to school. What is the probability of a student walking to school? Give your answer as a percentage.`,
+        correct, answers, correctIndex,
+        explanation: `${favourable} ÷ ${total} × 100 = ${pct}%`,
+      }
+    },
+    () => {
+      // Probability of NOT event
+      const total = rand(4, 10)
+      const favourable = rand(1, total - 1)
+      const notFavourable = total - favourable
+      const correct = `${notFavourable}/${total}`
+      const { answers, correctIndex } = buildMCQ(correct, [
+        `${favourable}/${total}`, `${notFavourable}/${total + 1}`, `${favourable - 1}/${total}`,
+      ])
+      return {
+        text: `There are ${total} counters in a box, ${favourable} are yellow. What is the probability of NOT picking a yellow counter?`,
+        correct, answers, correctIndex,
+        explanation: `Not yellow = ${total} − ${favourable} = ${notFavourable}. Probability = ${notFavourable}/${total}`,
+      }
+    },
+    () => {
+      // Expected frequency
+      const trials = [10, 20, 50, 100][rand(0, 3)]
+      const numr = rand(1, 4)
+      const denom = rand(numr + 1, 6)
+      const expected = Math.round((numr / denom) * trials)
+      const correct = String(expected)
+      const { answers, correctIndex } = buildMCQ(correct, [
+        String(expected + 2), String(expected - 2 > 0 ? expected - 2 : expected + 3), String(trials - expected),
+      ])
+      return {
+        text: `The probability of an event is ${numr}/${denom}. If the experiment is carried out ${trials} times, how many times would you expect the event to happen?`,
+        correct, answers, correctIndex,
+        explanation: `Expected frequency = probability × trials = ${numr}/${denom} × ${trials} = ${correct}`,
+      }
+    },
+  ]
+
+  const result = templates[rand(0, templates.length - 1)]()
+  return {
+    id: qid(), tier: 'Y6', type: 'probability', difficulty: diff,
+    questionText: result.text,
+    answers: result.answers, correctIndex: result.correctIndex,
+    explanation: result.explanation,
+    timeLimitSeconds: timeLimit('Y6', diff, 20),
+  }
+}
+
+// ─────────────────────────────────────────────
+// WORDED 3-STEP
+// ─────────────────────────────────────────────
+
+export function generateWorded3Step(diff: DifficultyLevel): Question {
+  const templates = [
+    () => {
+      // Money: earn, spend, share
+      const hourlyRate = rand(6, 15)
+      const hoursWorked = rand(4, 8)
+      const earned = hourlyRate * hoursWorked
+      const spent = rand(1, Math.floor(earned / 2)) * 2
+      const remaining = earned - spent
+      const sharePeople = rand(2, 4)
+      const correct = String(remaining / sharePeople)
+      const { answers, correctIndex } = buildMCQ(correct, [
+        String(earned / sharePeople), String(remaining / sharePeople + rand(1, 5)), String(spent / sharePeople),
+      ])
+      return {
+        text: `Sam earns £${hourlyRate} per hour and works ${hoursWorked} hours. She spends £${spent} on shopping, then splits the rest equally with ${sharePeople - 1} friends. How much does Sam receive?`,
+        correct: `£${correct}`, answers: answers.map(a => `£${a}`), correctIndex,
+        explanation: `Earned: ${hourlyRate} × ${hoursWorked} = £${earned}. After shopping: £${earned} − £${spent} = £${remaining}. Split ${sharePeople} ways: £${remaining} ÷ ${sharePeople} = £${correct}`,
+      }
+    },
+    () => {
+      // Distance/speed/time then comparison
+      const speed1 = rand(40, 80)
+      const time1 = rand(2, 4)
+      const dist1 = speed1 * time1
+      const dist2 = dist1 + rand(10, 60)
+      const time2 = rand(2, 5)
+      const speed2 = Math.round(dist2 / time2)
+      const diff2 = Math.abs(speed2 - speed1)
+      const faster = speed2 > speed1 ? 'Train B' : 'Train A'
+      const correct = String(diff2)
+      const { answers, correctIndex } = buildMCQ(correct, [
+        String(diff2 + rand(5, 15)), String(diff2 - rand(1, 5) > 0 ? diff2 - rand(1, 5) : diff2 + rand(1, 5)), String(diff2 * 2),
+      ])
+      return {
+        text: `Train A travels at ${speed1} km/h for ${time1} hours. Train B travels ${dist2} km in ${time2} hours. How many km/h faster is ${faster}?`,
+        correct: `${correct} km/h`, answers: answers.map(a => `${a} km/h`), correctIndex,
+        explanation: `Train A distance = ${speed1} × ${time1} = ${dist1} km. Train B speed = ${dist2} ÷ ${time2} = ${speed2} km/h. Difference = |${speed2} − ${speed1}| = ${correct} km/h`,
+      }
+    },
+    () => {
+      // Shopping with percentages and totals
+      const items = rand(3, 6)
+      const priceEach = rand(3, 12)
+      const subtotal = items * priceEach
+      const discountPct = [10, 15, 20][rand(0, 2)]
+      const discount = (discountPct / 100) * subtotal
+      const afterDiscount = subtotal - discount
+      const deliveryCharge = rand(2, 6)
+      const total = afterDiscount + deliveryCharge
+      const correct = String(total)
+      const { answers, correctIndex } = buildMCQ(correct, [
+        String(subtotal + deliveryCharge), String(total + rand(2, 8)), String(afterDiscount),
+      ])
+      return {
+        text: `An online shop sells books at £${priceEach} each. Maya buys ${items} books, gets a ${discountPct}% discount, and pays £${deliveryCharge} delivery. How much does Maya pay in total?`,
+        correct: `£${correct}`, answers: answers.map(a => `£${a}`), correctIndex,
+        explanation: `Subtotal: ${items} × £${priceEach} = £${subtotal}. Discount: ${discountPct}% of £${subtotal} = £${discount}. After discount: £${afterDiscount}. With delivery: £${afterDiscount} + £${deliveryCharge} = £${correct}`,
+      }
+    },
+    () => {
+      // Perimeter → cost
+      const length = rand(4, 14)
+      const width = rand(3, length - 1)
+      const perimeter = 2 * (length + width)
+      const pricePerMetre = rand(3, 9)
+      const fencingCost = perimeter * pricePerMetre
+      const gatesCost = rand(2, 4) * rand(15, 40)
+      const total = fencingCost + gatesCost
+      const numGates = Math.round(gatesCost / Math.round(gatesCost / 3))
+      const gateCost = Math.round(gatesCost / numGates)
+      const correct = String(total)
+      const { answers, correctIndex } = buildMCQ(correct, [
+        String(fencingCost), String(total + rand(5, 20)), String(total - rand(5, 15)),
+      ])
+      return {
+        text: `A rectangular garden is ${length} m long and ${width} m wide. Fencing costs £${pricePerMetre} per metre. There are also ${numGates} gates costing £${gateCost} each. What is the total cost to fence the garden?`,
+        correct: `£${correct}`, answers: answers.map(a => `£${a}`), correctIndex,
+        explanation: `Perimeter = 2 × (${length} + ${width}) = ${perimeter} m. Fencing: ${perimeter} × £${pricePerMetre} = £${fencingCost}. Gates: ${numGates} × £${gateCost} = £${gatesCost}. Total: £${fencingCost} + £${gatesCost} = £${correct}`,
+      }
+    },
+  ]
+
+  const result = templates[rand(0, templates.length - 1)]()
+  return {
+    id: qid(), tier: 'Y6', type: 'worded_3step', difficulty: diff,
+    questionText: result.text,
+    answers: result.answers, correctIndex: result.correctIndex,
+    explanation: result.explanation,
+    timeLimitSeconds: timeLimit('Y6', diff, 28),
+  }
+}
+
+// ─────────────────────────────────────────────
 // MASTER GENERATOR
 // ─────────────────────────────────────────────
 
@@ -997,10 +1251,11 @@ const GENERATORS: Record<QuestionType, (d: DifficultyLevel) => Question> = {
   factors_primes:    generateFactorsPrimes,
   worded_1step:      generateWorded1Step,
   worded_2step:      generateWorded2Step,
-  // Phase 2 stubs — fall back to related generators for now
-  coordinates:       generateAlgebra,
-  probability:       generateStatistics,
-  worded_3step:      generateWorded2Step,
+  // Phase 2B — real implementations
+  coordinates:       generateCoordinates,
+  probability:       generateProbability,
+  worded_3step:      generateWorded3Step,
+  // Phase 2C stubs
   quadratics:        generateAlgebra,
   trigonometry:      generateGeometryArea,
   simultaneous:      generateAlgebra,
