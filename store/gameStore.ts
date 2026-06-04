@@ -618,8 +618,7 @@ export const useGameStore = create<GameStore>()(
           if (item.stats.luckBonus)  p.luckBonus  += item.stats.luckBonus
           return { player: p }
         })
-      }
-      get()._unlockAch("equip1") // 2C-4: first equip
+        get()._unlockAch("equip1") // 2C-4: first equip
       },
 
       unequipSlot: (slot) => {
@@ -662,8 +661,7 @@ export const useGameStore = create<GameStore>()(
           if (s.player.activePets.includes(petId)) return s
           return { player: { ...s.player, activePets: [...s.player.activePets, petId] } }
         })
-      }
-      get()._unlockAch("pet1") // 2C-4: first pet activated
+        get()._unlockAch("pet1") // 2C-4: first pet activated
       },
 
       deactivatePet: (petId) => {
