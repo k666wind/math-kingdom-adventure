@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
+import { sfx } from '../../engine/audioEngine'
 import { useGameStore } from '../../store/gameStore'
 
 // ── Timer Bar ─────────────────────────────────────────────────
@@ -71,16 +72,19 @@ const AnswerButton: React.FC<AnsProps> = ({ text, index, selected, correctIndex,
 export const BattleScreen: React.FC = () => {
   const battle       = useGameStore(s => s.battle)
   const player       = useGameStore(s => s.player)
-  const submitAnswer = useGameStore(s => s.submitAnswer)
-  const nextQuestion = useGameStore(s => s.nextQuestion)
-  const endBattle    = useGameStore(s => s.endBattle)
-  const navigate     = useGameStore(s => s.navigate)
+  const submitAnswer   = useGameStore(s => s.submitAnswer)
+  const nextQuestion   = useGameStore(s => s.nextQuestion)
+  const endBattle      = useGameStore(s => s.endBattle)
+  const navigate       = useGameStore(s => s.navigate)
+  const useFiftyFifty  = useGameStore(s => s.useFiftyFifty)
 
-  const [selected,   setSelected]   = useState<number | null>(null)
-  const [timeLeft,   setTimeLeft]   = useState(0)
-  const [totalTime,  setTotalTime]  = useState(0)
-  const [dmgFloat,   setDmgFloat]   = useState<{ val: string; key: number } | null>(null)
-  const [shake,      setShake]      = useState(false)
+  const [selected,        setSelected]        = useState<number | null>(null)
+  const [timeLeft,        setTimeLeft]        = useState(0)
+  const [totalTime,       setTotalTime]       = useState(0)
+  const [dmgFloat,        setDmgFloat]        = useState<{ val: string; key: number } | null>(null)
+  const [shake,           setShake]           = useState(false)
+  const [showRetreat,     setShowRetreat]     = useState(false)
+  const [usedFiftyFifty,  setUsedFiftyFifty]  = useState(false)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const floatKey = useRef(0)
 
@@ -91,6 +95,7 @@ export const BattleScreen: React.FC = () => {
     if (battle?.status === 'question' && battle.currentQuestion) {
       const t = (battle.currentQuestion.timeLimitSeconds ?? 15) + (player?.speedBonus ?? 0)
       setSelected(null)
+      setUsedFiftyFifty(false)
       setTimeLeft(t)
       setTotalTime(t)
       clearTimer()
@@ -116,8 +121,10 @@ export const BattleScreen: React.FC = () => {
     const { correct } = submitAnswer(idx)
     floatKey.current++
     if (correct) {
+      sfx.correct()
       setDmgFloat({ val: `⚔️ Hit!`, key: floatKey.current })
     } else {
+      sfx.wrong()
       setShake(true)
       setDmgFloat({ val: `💥 -HP`, key: floatKey.current })
       setTimeout(() => setShake(false), 500)
@@ -127,8 +134,10 @@ export const BattleScreen: React.FC = () => {
       const freshBattle = useGameStore.getState().battle
       if (!freshBattle) return
       if (freshBattle.monsterCurrentHp <= 0) {
+        sfx.victory()
         endBattle('victory')
       } else if (freshBattle.playerCurrentHp <= 0) {
+        sfx.defeat()
         endBattle('defeat')
       } else {
         nextQuestion()
@@ -141,6 +150,13 @@ export const BattleScreen: React.FC = () => {
   const q = battle.currentQuestion
   const isVictory = battle.status === 'victory'
   const isDefeat  = battle.status === 'defeat'
+
+  // 2C-5: Play drop sound when drops arrive on victory screen
+  useEffect(() => {
+    if (isVictory && battle.drops && battle.drops.length > 0) {
+      setTimeout(() => sfx.drop(), 800)
+    }
+  }, [isVictory, battle?.drops])
 
   // ── Victory Screen ──────────────────────────────────────────
   if (isVictory) {
@@ -206,6 +222,22 @@ export const BattleScreen: React.FC = () => {
           ))}
         </div>
 
+        {/* Drop rewards */}
+        {battle.drops && battle.drops.length > 0 && (
+          <div className="w-full rounded-2xl p-4 mb-4 text-center"
+            style={{ background: 'rgba(255,230,109,0.15)', border: '1px solid rgba(255,230,109,0.4)' }}>
+            <div className="font-fredoka text-sm mb-2" style={{ color: '#FFE66D' }}>✨ Item Drop!</div>
+            <div className="flex flex-wrap justify-center gap-2">
+              {battle.drops.map((id, i) => (
+                <span key={i} className="font-nunito text-xs rounded-full px-3 py-1"
+                  style={{ background: 'rgba(255,230,109,0.25)', color: '#FFE66D', border: '1px solid rgba(255,230,109,0.5)' }}>
+                  {id === 'crystal' ? '💎 Crystal' : `🎁 ${id.replace(/_/g, ' ')}`}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
         <button onClick={handleContinue}
           className="w-full text-white font-fredoka text-lg py-4 rounded-2xl mb-3 active:scale-95 transition-transform"
           style={{ background: '#FF6B35' }}>
@@ -252,11 +284,41 @@ export const BattleScreen: React.FC = () => {
     <div className="h-full flex flex-col"
       style={{ background: 'linear-gradient(180deg,#1a0e3a 0%,#2D1B69 60%,#3d2a7a 100%)' }}>
 
-      {/* Top bar: region + combo */}
-      <div className="flex items-center justify-between px-4 pt-4 pb-2">
-        <div className="font-nunito text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>
-          {battle.monster.name}
+      {/* ── Retreat confirmation modal ── */}
+      {showRetreat && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center px-6"
+          style={{ background: 'rgba(0,0,0,0.75)' }}>
+          <div className="w-full rounded-3xl p-6 text-center"
+            style={{ background: '#2D1B69', border: '1.5px solid rgba(255,255,255,0.2)' }}>
+            <div className="text-4xl mb-3">🏃</div>
+            <h2 className="font-fredoka text-2xl text-white mb-2">Retreat?</h2>
+            <p className="font-nunito text-sm mb-6" style={{ color: 'rgba(255,255,255,0.6)' }}>
+              Running away counts as a defeat — no EXP or Gold awarded.
+            </p>
+            <button
+              onClick={() => { setShowRetreat(false); endBattle('defeat') }}
+              className="w-full font-fredoka text-lg py-3.5 rounded-2xl mb-3 active:scale-95 transition-transform"
+              style={{ background: '#FF4D6D', color: 'white' }}>
+              Yes, Retreat 🏃
+            </button>
+            <button
+              onClick={() => { sfx.tap(); setShowRetreat(false) }}
+              className="w-full font-fredoka text-lg py-3.5 rounded-2xl active:scale-95 transition-transform"
+              style={{ background: 'rgba(255,255,255,0.12)', color: 'white' }}>
+              Keep Fighting ⚔️
+            </button>
+          </div>
         </div>
+      )}
+
+      {/* Top bar: monster name + combo + retreat */}
+      <div className="flex items-center justify-between px-4 pt-4 pb-2">
+        <button
+          onClick={() => { sfx.tap(); setShowRetreat(true) }}
+          className="font-nunito text-xs px-3 py-1.5 rounded-xl active:scale-95 transition-transform"
+          style={{ background: 'rgba(255,77,109,0.2)', color: '#FF4D6D', border: '1px solid rgba(255,77,109,0.4)' }}>
+          🏃 Retreat
+        </button>
         <ComboBadge combo={battle.comboCount} />
       </div>
 
@@ -265,8 +327,7 @@ export const BattleScreen: React.FC = () => {
         <div className="text-center mb-2">
           <span className="text-6xl inline-block animate-float">{battle.monster.emoji}</span>
           <div className="font-fredoka text-white text-lg mt-1">{battle.monster.name}</div>
-        </div>
-        <div className="flex items-center gap-2">
+        </div>        <div className="flex items-center gap-2">
           <span className="font-nunito text-xs" style={{ color: 'rgba(255,255,255,0.5)' }}>HP</span>
           <div className="flex-1 h-3 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.15)' }}>
             <div className="h-full rounded-full hp-bar-fill"
@@ -324,7 +385,23 @@ export const BattleScreen: React.FC = () => {
               ))}
             </div>
 
-            {/* 50/50 button - only if Wise Owl pet active */}
+            {/* 50/50 Wise Owl button — only if pet is active, one use per question */}
+            {player.activePets.includes('wise_owl') && (
+              <button
+                disabled={usedFiftyFifty || selected !== null}
+                onClick={() => { sfx.tap(); setUsedFiftyFifty(true); useFiftyFifty() }}
+                className="w-full mt-2 py-2.5 rounded-2xl font-fredoka text-base active:scale-95 transition-all duration-150"
+                style={{
+                  background: usedFiftyFifty || selected !== null
+                    ? 'rgba(255,255,255,0.06)'
+                    : 'rgba(78,205,196,0.18)',
+                  border: `1.5px solid ${usedFiftyFifty || selected !== null ? 'rgba(255,255,255,0.1)' : '#4ECDC4'}`,
+                  color: usedFiftyFifty || selected !== null ? 'rgba(255,255,255,0.25)' : '#4ECDC4',
+                  cursor: usedFiftyFifty || selected !== null ? 'not-allowed' : 'pointer',
+                }}>
+                🦉 50/50 {usedFiftyFifty ? '(Used)' : ''}
+              </button>
+            )}
           </>
         ) : (
           <div className="flex-1 flex items-center justify-center">

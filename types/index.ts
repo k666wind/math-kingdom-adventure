@@ -143,6 +143,7 @@ export interface BattleState {
   status: 'idle'|'question'|'feedback_correct'|'feedback_wrong'|'victory'|'defeat'
   lastAnswerCorrect: boolean|null
   timerBonus: number
+  drops: string[]   // item/pet IDs received on victory
 }
 
 export interface QuestionResult {

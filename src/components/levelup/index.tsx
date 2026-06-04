@@ -1,4 +1,5 @@
-import React from 'react'
+import React, { useEffect } from 'react'
+import { sfx } from '../../engine/audioEngine'
 import { useGameStore } from '../../store/gameStore'
 
 export const LevelUpScreen: React.FC = () => {
@@ -6,6 +7,9 @@ export const LevelUpScreen: React.FC = () => {
   const clearPendingLevelUps = useGameStore(s => s.clearPendingLevelUps)
   const navigate           = useGameStore(s => s.navigate)
   const player             = useGameStore(s => s.player)
+
+  // 2C-5: Play level-up sound when screen mounts
+  useEffect(() => { sfx.levelUp() }, [])
 
   if (!pendingLevelUps.length || !player) {
     navigate('main_menu')

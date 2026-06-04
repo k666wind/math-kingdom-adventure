@@ -1,25 +1,39 @@
-import React from 'react'
+import React, { useState } from 'react'
+import { sfx } from '../../engine/audioEngine'
 import { useGameStore } from '../../store/gameStore'
+import { REGIONS } from '../../data/gameData'
 
 export const MainMenu: React.FC = () => {
   const player           = useGameStore(s => s.player)
   const navigate         = useGameStore(s => s.navigate)
+  const startBattle      = useGameStore(s => s.startBattle)
   const streak           = useGameStore(s => s.streak)
+  const [soundOn, setSoundOn] = useState(sfx.isEnabled())
   const dailyChallenges  = useGameStore(s => s.dailyChallenges)
   if (!player) return null
 
   const expPct = Math.min(100, (player.exp / player.expToNextLevel) * 100)
   const hasClaimable = dailyChallenges.some(c => c.isCompleted && !c.isClaimed)
 
+  const handleQuickBattle = () => {
+    // Gather all battles from unlocked regions that have content
+    const available = REGIONS
+      .filter(r => player.unlockedRegions.includes(r.id) && r.battles.length > 0)
+      .flatMap(r => r.battles.map(b => ({ regionId: r.id, battleId: b.id })))
+    if (available.length === 0) { navigate('world_map'); return }
+    const pick = available[Math.floor(Math.random() * available.length)]
+    startBattle(pick.regionId as any, pick.battleId)
+  }
+
   const navCards = [
-    { emoji:'🗺️', label:'World Map',        screen:'world_map'           as const },
-    { emoji:'⚔️', label:'Quick Battle',     screen:'world_map'           as const },
-    { emoji:'🎯', label:'Daily Challenges', screen:'daily_challenges'    as const, badge: hasClaimable },
-    { emoji:'🏆', label:'Achievements',     screen:'achievements'        as const },
-    { emoji:'🎒', label:'Equipment',        screen:'collection_equipment' as const },
-    { emoji:'🐾', label:'Pets',             screen:'collection_pets'     as const },
-    { emoji:'🛒', label:'Shop',             screen:'shop'                as const },
-    { emoji:'⚙️', label:'Settings',        screen:'parent_pin'          as const },
+    { emoji:'🗺️', label:'World Map',        onClick: () => navigate('world_map') },
+    { emoji:'⚡', label:'Quick Battle',     onClick: handleQuickBattle },
+    { emoji:'🎯', label:'Daily Challenges', onClick: () => navigate('daily_challenges'), badge: hasClaimable },
+    { emoji:'🏆', label:'Achievements',     onClick: () => navigate('achievements') },
+    { emoji:'🎒', label:'Equipment',        onClick: () => navigate('collection_equipment') },
+    { emoji:'🐾', label:'Pets',             onClick: () => navigate('collection_pets') },
+    { emoji:'🛒', label:'Shop',             onClick: () => navigate('shop') },
+    { emoji:'⚙️', label:'Settings',        onClick: () => navigate('parent_pin') },
   ]
 
   return (
@@ -47,6 +61,12 @@ export const MainMenu: React.FC = () => {
             <span className="font-nunito font-bold text-sm" style={{color:'#5a3e00'}}>{player.gold}</span>
           </div>
         </div>
+          <button
+            onClick={() => { const next = !soundOn; setSoundOn(next); sfx.setEnabled(next); if (next) sfx.tap() }}
+            className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 active:scale-90 transition-transform"
+            style={{background:"rgba(255,255,255,0.12)",border:"1px solid rgba(255,255,255,0.2)",fontSize:"1rem"}}>
+            {soundOn ? "🔊" : "🔇"}
+          </button>
       </div>
 
       {/* Content */}
@@ -73,7 +93,7 @@ export const MainMenu: React.FC = () => {
         {/* Nav grid */}
         <div className="grid grid-cols-2 gap-3">
           {navCards.map(card => (
-            <button key={card.label} onClick={() => navigate(card.screen)}
+            <button key={card.label} onClick={card.onClick}
               className="relative bg-white rounded-2xl p-4 text-center active:scale-95 transition-transform"
               style={{border:'1px solid rgba(45,27,105,0.08)'}}>
               {card.badge && (

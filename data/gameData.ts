@@ -129,6 +129,217 @@ export const MONSTERS: Record<string, Monster> = {
       triggerCondition: 'consecutive_wrong_2', effect: 'double_damage', effectValue: 2,
     },
   },
+
+  // ── Fraction Volcano (Lv 15–19) ──────────────────────────────
+  lava_sprite: {
+    id: 'lava_sprite', name: 'Lava Sprite', emoji: '🔥',
+    level: 15, maxHp: 110, attackDamage: 22,
+    expReward: 65, goldRewardMin: 18, goldRewardMax: 30, dropTable: [],
+  },
+  fraction_phantom: {
+    id: 'fraction_phantom', name: 'Fraction Phantom', emoji: '👻',
+    level: 16, maxHp: 130, attackDamage: 24,
+    expReward: 75, goldRewardMin: 20, goldRewardMax: 35, dropTable: [],
+  },
+  decimal_drake: {
+    id: 'decimal_drake', name: 'Decimal Drake', emoji: '🦎',
+    level: 17, maxHp: 155, attackDamage: 26,
+    expReward: 88, goldRewardMin: 24, goldRewardMax: 40,
+    dropTable: [{ itemId: 'crystals', itemType: 'crystal', dropChance: 0.25 }],
+  },
+  magma_toad: {
+    id: 'magma_toad', name: 'Magma Toad', emoji: '🐸',
+    level: 18, maxHp: 175, attackDamage: 28,
+    expReward: 100, goldRewardMin: 28, goldRewardMax: 46, dropTable: [],
+  },
+  volcano_golem_mini: {
+    id: 'volcano_golem_mini', name: 'Volcano Golem', emoji: '🌋',
+    level: 19, maxHp: 270, attackDamage: 30,
+    expReward: 140, goldRewardMin: 45, goldRewardMax: 65,
+    dropTable: [{ itemId: 'gold_ring', itemType: 'equipment', dropChance: 0.2 }],
+  },
+  inferna_queen: {
+    id: 'inferna_queen', name: 'Inferna Queen', emoji: '👸',
+    level: 20, maxHp: 450, attackDamage: 32,
+    expReward: 260, goldRewardMin: 90, goldRewardMax: 130,
+    dropTable: [
+      { itemId: 'crystal_sword', itemType: 'equipment', dropChance: 0.4 },
+      { itemId: 'lucky_fox_egg', itemType: 'pet_egg', dropChance: 0.2 },
+    ],
+    specialAbility: {
+      name: 'Eruption', description: 'Reduces timer at 50% HP',
+      triggerCondition: 'hp_50', effect: 'reduce_timer', effectValue: 4,
+    },
+  },
+
+  // ── Percentage Peaks (Lv 22–27) ──────────────────────────────
+  snow_sprite: {
+    id: 'snow_sprite', name: 'Snow Sprite', emoji: '❄️',
+    level: 22, maxHp: 145, attackDamage: 30,
+    expReward: 90, goldRewardMin: 25, goldRewardMax: 42, dropTable: [],
+  },
+  ice_archer: {
+    id: 'ice_archer', name: 'Ice Archer', emoji: '🏹',
+    level: 23, maxHp: 165, attackDamage: 33,
+    expReward: 105, goldRewardMin: 28, goldRewardMax: 48, dropTable: [],
+  },
+  ratio_raven: {
+    id: 'ratio_raven', name: 'Ratio Raven', emoji: '🐦‍⬛',
+    level: 24, maxHp: 185, attackDamage: 36,
+    expReward: 118, goldRewardMin: 32, goldRewardMax: 54,
+    dropTable: [{ itemId: 'crystals', itemType: 'crystal', dropChance: 0.3 }],
+  },
+  blizzard_beast: {
+    id: 'blizzard_beast', name: 'Blizzard Beast', emoji: '🐻‍❄️',
+    level: 25, maxHp: 210, attackDamage: 39,
+    expReward: 135, goldRewardMin: 38, goldRewardMax: 62, dropTable: [],
+  },
+  frost_titan_mini: {
+    id: 'frost_titan_mini', name: 'Frost Titan', emoji: '🗿',
+    level: 26, maxHp: 320, attackDamage: 42,
+    expReward: 180, goldRewardMin: 58, goldRewardMax: 85,
+    dropTable: [{ itemId: 'crystal_armor', itemType: 'equipment', dropChance: 0.18 }],
+  },
+  baron_percent: {
+    id: 'baron_percent', name: 'Baron Percent', emoji: '🧊',
+    level: 27, maxHp: 520, attackDamage: 45,
+    expReward: 310, goldRewardMin: 110, goldRewardMax: 155,
+    dropTable: [
+      { itemId: 'magic_calculator_hat', itemType: 'equipment', dropChance: 0.35 },
+      { itemId: 'baby_dragon_egg', itemType: 'pet_egg', dropChance: 0.18 },
+    ],
+    specialAbility: {
+      name: 'Avalanche', description: 'Double damage on consecutive wrong answers',
+      triggerCondition: 'consecutive_wrong_2', effect: 'double_damage', effectValue: 2,
+    },
+  },
+
+  // ── Algebra Ocean (Lv 28–33) ─────────────────────────────────
+  sea_variable: {
+    id: 'sea_variable', name: 'Sea Variable', emoji: '🌊',
+    level: 28, maxHp: 180, attackDamage: 40,
+    expReward: 115, goldRewardMin: 32, goldRewardMax: 52, dropTable: [],
+  },
+  algebra_eel: {
+    id: 'algebra_eel', name: 'Algebra Eel', emoji: '🐍',
+    level: 29, maxHp: 205, attackDamage: 43,
+    expReward: 130, goldRewardMin: 36, goldRewardMax: 58, dropTable: [],
+  },
+  sequence_shark: {
+    id: 'sequence_shark', name: 'Sequence Shark', emoji: '🦈',
+    level: 30, maxHp: 230, attackDamage: 46,
+    expReward: 148, goldRewardMin: 40, goldRewardMax: 66,
+    dropTable: [{ itemId: 'crystals', itemType: 'crystal', dropChance: 0.3 }],
+  },
+  negative_nautilus: {
+    id: 'negative_nautilus', name: 'Negative Nautilus', emoji: '🐙',
+    level: 31, maxHp: 260, attackDamage: 49,
+    expReward: 165, goldRewardMin: 46, goldRewardMax: 74, dropTable: [],
+  },
+  kraken_mini: {
+    id: 'kraken_mini', name: 'Mini Kraken', emoji: '🦑',
+    level: 32, maxHp: 390, attackDamage: 52,
+    expReward: 220, goldRewardMin: 72, goldRewardMax: 105,
+    dropTable: [{ itemId: 'gold_ring', itemType: 'equipment', dropChance: 0.2 }],
+  },
+  lord_algebrax: {
+    id: 'lord_algebrax', name: 'Lord Algebrax', emoji: '🔱',
+    level: 33, maxHp: 620, attackDamage: 55,
+    expReward: 370, goldRewardMin: 130, goldRewardMax: 180,
+    dropTable: [
+      { itemId: 'crystal_sword', itemType: 'equipment', dropChance: 0.45 },
+      { itemId: 'wise_owl_egg', itemType: 'pet_egg', dropChance: 0.2 },
+    ],
+    specialAbility: {
+      name: 'Variable Storm', description: 'Reduces timer at 50% HP',
+      triggerCondition: 'hp_50', effect: 'reduce_timer', effectValue: 6,
+    },
+  },
+
+  // ── Geometry Fortress (Lv 35–39) ─────────────────────────────
+  angle_archer: {
+    id: 'angle_archer', name: 'Angle Archer', emoji: '📐',
+    level: 35, maxHp: 220, attackDamage: 52,
+    expReward: 145, goldRewardMin: 42, goldRewardMax: 68, dropTable: [],
+  },
+  area_assassin: {
+    id: 'area_assassin', name: 'Area Assassin', emoji: '📏',
+    level: 36, maxHp: 250, attackDamage: 56,
+    expReward: 165, goldRewardMin: 48, goldRewardMax: 76, dropTable: [],
+  },
+  coordinate_cobra: {
+    id: 'coordinate_cobra', name: 'Coordinate Cobra', emoji: '🐉',
+    level: 37, maxHp: 280, attackDamage: 59,
+    expReward: 185, goldRewardMin: 54, goldRewardMax: 86,
+    dropTable: [{ itemId: 'crystals', itemType: 'crystal', dropChance: 0.35 }],
+  },
+  shape_shifter: {
+    id: 'shape_shifter', name: 'Shape Shifter', emoji: '🔷',
+    level: 38, maxHp: 310, attackDamage: 62,
+    expReward: 205, goldRewardMin: 60, goldRewardMax: 96, dropTable: [],
+  },
+  citadel_guardian_mini: {
+    id: 'citadel_guardian_mini', name: 'Citadel Guardian', emoji: '⚡',
+    level: 39, maxHp: 460, attackDamage: 66,
+    expReward: 275, goldRewardMin: 90, goldRewardMax: 130,
+    dropTable: [{ itemId: 'crystal_armor', itemType: 'equipment', dropChance: 0.22 }],
+  },
+  general_geometra: {
+    id: 'general_geometra', name: 'General Geometra', emoji: '🏰',
+    level: 40, maxHp: 750, attackDamage: 70,
+    expReward: 450, goldRewardMin: 160, goldRewardMax: 220,
+    dropTable: [
+      { itemId: 'magic_calculator_hat', itemType: 'equipment', dropChance: 0.5 },
+      { itemId: 'robot_dog_egg', itemType: 'pet_egg', dropChance: 0.2 },
+    ],
+    specialAbility: {
+      name: 'Geometric Surge', description: 'Double damage on consecutive wrong answers',
+      triggerCondition: 'consecutive_wrong_2', effect: 'double_damage', effectValue: 2,
+    },
+  },
+
+  // ── Shadow Lair (Lv 40–45) ───────────────────────────────────
+  shadow_scholar: {
+    id: 'shadow_scholar', name: 'Shadow Scholar', emoji: '🌑',
+    level: 40, maxHp: 260, attackDamage: 65,
+    expReward: 175, goldRewardMin: 52, goldRewardMax: 84, dropTable: [],
+  },
+  void_viper: {
+    id: 'void_viper', name: 'Void Viper', emoji: '🐍',
+    level: 41, maxHp: 295, attackDamage: 70,
+    expReward: 200, goldRewardMin: 60, goldRewardMax: 96, dropTable: [],
+  },
+  dark_algebraist: {
+    id: 'dark_algebraist', name: 'Dark Algebraist', emoji: '🧮',
+    level: 42, maxHp: 330, attackDamage: 75,
+    expReward: 225, goldRewardMin: 68, goldRewardMax: 110,
+    dropTable: [{ itemId: 'crystals', itemType: 'crystal', dropChance: 0.4 }],
+  },
+  trig_wraith: {
+    id: 'trig_wraith', name: 'Trig Wraith', emoji: '👁️',
+    level: 43, maxHp: 370, attackDamage: 80,
+    expReward: 255, goldRewardMin: 76, goldRewardMax: 124, dropTable: [],
+  },
+  shadow_titan_mini: {
+    id: 'shadow_titan_mini', name: 'Shadow Titan', emoji: '🌚',
+    level: 44, maxHp: 560, attackDamage: 85,
+    expReward: 340, goldRewardMin: 115, goldRewardMax: 165,
+    dropTable: [{ itemId: 'crystal_sword', itemType: 'equipment', dropChance: 0.25 }],
+  },
+  the_shadow_mathematician: {
+    id: 'the_shadow_mathematician', name: 'The Shadow Mathematician', emoji: '💀',
+    level: 45, maxHp: 999, attackDamage: 90,
+    expReward: 600, goldRewardMin: 220, goldRewardMax: 300,
+    dropTable: [
+      { itemId: 'crystal_sword', itemType: 'equipment', dropChance: 0.6 },
+      { itemId: 'wise_owl_egg', itemType: 'pet_egg', dropChance: 0.35 },
+      { itemId: 'crystals', itemType: 'crystal', dropChance: 0.8 },
+    ],
+    specialAbility: {
+      name: 'Shadow Mastery', description: 'Reduces timer and doubles damage at 50% HP',
+      triggerCondition: 'hp_50', effect: 'reduce_timer', effectValue: 8,
+    },
+  },
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -195,7 +406,14 @@ export const REGIONS: Region[] = [
     requiredLevel: 15,
     tiers: ['Y5'],
     topicFocus: ['fractions', 'percentages', 'decimals', 'negative_numbers'],
-    battles: [],
+    battles: [
+      { id: 'fv_1',    regionId: 'fraction_volcano', battleNumber: 1, monsterId: 'lava_sprite',        isBoss: false, isMiniBoss: false, questionTiers: ['Y5'], questionTypes: ['fractions'] },
+      { id: 'fv_2',    regionId: 'fraction_volcano', battleNumber: 2, monsterId: 'fraction_phantom',   isBoss: false, isMiniBoss: false, questionTiers: ['Y5'], questionTypes: ['fractions', 'decimals'] },
+      { id: 'fv_3',    regionId: 'fraction_volcano', battleNumber: 3, monsterId: 'decimal_drake',      isBoss: false, isMiniBoss: false, questionTiers: ['Y5'], questionTypes: ['decimals', 'percentages'] },
+      { id: 'fv_4',    regionId: 'fraction_volcano', battleNumber: 4, monsterId: 'magma_toad',         isBoss: false, isMiniBoss: false, questionTiers: ['Y5'], questionTypes: ['percentages', 'negative_numbers'] },
+      { id: 'fv_mb',   regionId: 'fraction_volcano', battleNumber: 5, monsterId: 'volcano_golem_mini', isBoss: false, isMiniBoss: true,  questionTiers: ['Y5'], questionTypes: ['fractions', 'decimals', 'percentages'] },
+      { id: 'fv_boss', regionId: 'fraction_volcano', battleNumber: 6, monsterId: 'inferna_queen',      isBoss: true,  isMiniBoss: false, questionTiers: ['Y5'], questionTypes: ['fractions', 'decimals', 'percentages', 'negative_numbers'] },
+    ],
   },
   {
     id: 'percentage_peaks',
@@ -205,7 +423,14 @@ export const REGIONS: Region[] = [
     requiredLevel: 22,
     tiers: ['Y5', 'Y6'],
     topicFocus: ['percentages', 'ratio', 'worded_2step'],
-    battles: [],
+    battles: [
+      { id: 'pp_1',    regionId: 'percentage_peaks', battleNumber: 1, monsterId: 'snow_sprite',      isBoss: false, isMiniBoss: false, questionTiers: ['Y5','Y6'], questionTypes: ['percentages'] },
+      { id: 'pp_2',    regionId: 'percentage_peaks', battleNumber: 2, monsterId: 'ice_archer',       isBoss: false, isMiniBoss: false, questionTiers: ['Y5','Y6'], questionTypes: ['percentages', 'ratio'] },
+      { id: 'pp_3',    regionId: 'percentage_peaks', battleNumber: 3, monsterId: 'ratio_raven',      isBoss: false, isMiniBoss: false, questionTiers: ['Y6'],      questionTypes: ['ratio', 'worded_2step'] },
+      { id: 'pp_4',    regionId: 'percentage_peaks', battleNumber: 4, monsterId: 'blizzard_beast',   isBoss: false, isMiniBoss: false, questionTiers: ['Y6'],      questionTypes: ['worded_2step', 'percentages'] },
+      { id: 'pp_mb',   regionId: 'percentage_peaks', battleNumber: 5, monsterId: 'frost_titan_mini', isBoss: false, isMiniBoss: true,  questionTiers: ['Y5','Y6'], questionTypes: ['percentages', 'ratio', 'worded_2step'] },
+      { id: 'pp_boss', regionId: 'percentage_peaks', battleNumber: 6, monsterId: 'baron_percent',    isBoss: true,  isMiniBoss: false, questionTiers: ['Y5','Y6'], questionTypes: ['percentages', 'ratio', 'worded_2step', 'decimals'] },
+    ],
   },
   {
     id: 'algebra_ocean',
@@ -215,7 +440,14 @@ export const REGIONS: Region[] = [
     requiredLevel: 28,
     tiers: ['Y6'],
     topicFocus: ['algebra', 'sequences', 'ratio', 'worded_3step'],
-    battles: [],
+    battles: [
+      { id: 'ao_1',    regionId: 'algebra_ocean', battleNumber: 1, monsterId: 'sea_variable',      isBoss: false, isMiniBoss: false, questionTiers: ['Y6'], questionTypes: ['algebra'] },
+      { id: 'ao_2',    regionId: 'algebra_ocean', battleNumber: 2, monsterId: 'algebra_eel',       isBoss: false, isMiniBoss: false, questionTiers: ['Y6'], questionTypes: ['algebra', 'sequences'] },
+      { id: 'ao_3',    regionId: 'algebra_ocean', battleNumber: 3, monsterId: 'sequence_shark',    isBoss: false, isMiniBoss: false, questionTiers: ['Y6'], questionTypes: ['sequences', 'negative_numbers'] },
+      { id: 'ao_4',    regionId: 'algebra_ocean', battleNumber: 4, monsterId: 'negative_nautilus', isBoss: false, isMiniBoss: false, questionTiers: ['Y6'], questionTypes: ['negative_numbers', 'worded_3step'] },
+      { id: 'ao_mb',   regionId: 'algebra_ocean', battleNumber: 5, monsterId: 'kraken_mini',       isBoss: false, isMiniBoss: true,  questionTiers: ['Y6'], questionTypes: ['algebra', 'sequences', 'negative_numbers'] },
+      { id: 'ao_boss', regionId: 'algebra_ocean', battleNumber: 6, monsterId: 'lord_algebrax',     isBoss: true,  isMiniBoss: false, questionTiers: ['Y6'], questionTypes: ['algebra', 'sequences', 'negative_numbers', 'worded_3step'] },
+    ],
   },
   {
     id: 'geometry_fortress',
@@ -225,7 +457,14 @@ export const REGIONS: Region[] = [
     requiredLevel: 35,
     tiers: ['Y6'],
     topicFocus: ['geometry_area', 'geometry_angles', 'coordinates', 'statistics'],
-    battles: [],
+    battles: [
+      { id: 'gf2_1',    regionId: 'geometry_fortress', battleNumber: 1, monsterId: 'angle_archer',         isBoss: false, isMiniBoss: false, questionTiers: ['Y6'], questionTypes: ['geometry_angles'] },
+      { id: 'gf2_2',    regionId: 'geometry_fortress', battleNumber: 2, monsterId: 'area_assassin',        isBoss: false, isMiniBoss: false, questionTiers: ['Y6'], questionTypes: ['geometry_area', 'geometry_angles'] },
+      { id: 'gf2_3',    regionId: 'geometry_fortress', battleNumber: 3, monsterId: 'coordinate_cobra',     isBoss: false, isMiniBoss: false, questionTiers: ['Y6'], questionTypes: ['coordinates', 'geometry_area'] },
+      { id: 'gf2_4',    regionId: 'geometry_fortress', battleNumber: 4, monsterId: 'shape_shifter',        isBoss: false, isMiniBoss: false, questionTiers: ['Y6'], questionTypes: ['statistics', 'coordinates'] },
+      { id: 'gf2_mb',   regionId: 'geometry_fortress', battleNumber: 5, monsterId: 'citadel_guardian_mini',isBoss: false, isMiniBoss: true,  questionTiers: ['Y6'], questionTypes: ['geometry_area', 'geometry_angles', 'coordinates'] },
+      { id: 'gf2_boss', regionId: 'geometry_fortress', battleNumber: 6, monsterId: 'general_geometra',     isBoss: true,  isMiniBoss: false, questionTiers: ['Y6'], questionTypes: ['geometry_area', 'geometry_angles', 'coordinates', 'statistics'] },
+    ],
   },
   {
     id: 'shadow_lair',
@@ -235,7 +474,14 @@ export const REGIONS: Region[] = [
     requiredLevel: 40,
     tiers: ['Y6'],
     topicFocus: ['addition','subtraction','multiplication','division','fractions','percentages','ratio','algebra','geometry_area','statistics'],
-    battles: [],
+    battles: [
+      { id: 'sl_1',    regionId: 'shadow_lair', battleNumber: 1, monsterId: 'shadow_scholar',           isBoss: false, isMiniBoss: false, questionTiers: ['Y6'], questionTypes: ['algebra', 'worded_3step'] },
+      { id: 'sl_2',    regionId: 'shadow_lair', battleNumber: 2, monsterId: 'void_viper',               isBoss: false, isMiniBoss: false, questionTiers: ['Y6'], questionTypes: ['sequences', 'negative_numbers', 'worded_3step'] },
+      { id: 'sl_3',    regionId: 'shadow_lair', battleNumber: 3, monsterId: 'dark_algebraist',          isBoss: false, isMiniBoss: false, questionTiers: ['Y6'], questionTypes: ['algebra', 'fractions', 'percentages'] },
+      { id: 'sl_4',    regionId: 'shadow_lair', battleNumber: 4, monsterId: 'trig_wraith',              isBoss: false, isMiniBoss: false, questionTiers: ['Y6'], questionTypes: ['geometry_area', 'geometry_angles', 'statistics'] },
+      { id: 'sl_mb',   regionId: 'shadow_lair', battleNumber: 5, monsterId: 'shadow_titan_mini',        isBoss: false, isMiniBoss: true,  questionTiers: ['Y6'], questionTypes: ['algebra', 'fractions', 'percentages', 'ratio', 'worded_3step'] },
+      { id: 'sl_boss', regionId: 'shadow_lair', battleNumber: 6, monsterId: 'the_shadow_mathematician', isBoss: true,  isMiniBoss: false, questionTiers: ['Y6'], questionTypes: ['algebra', 'fractions', 'percentages', 'ratio', 'geometry_area', 'statistics', 'worded_3step'] },
+    ],
   },
 ]
 

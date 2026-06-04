@@ -1,4 +1,5 @@
-import React from 'react'
+import React, { useState } from 'react'
+import { sfx } from '../../engine/audioEngine'
 import { useGameStore } from '../../store/gameStore'
 import { REGIONS } from '../../data/gameData'
 
@@ -7,6 +8,7 @@ export const MainMenu: React.FC = () => {
   const navigate         = useGameStore(s => s.navigate)
   const startBattle      = useGameStore(s => s.startBattle)
   const streak           = useGameStore(s => s.streak)
+  const [soundOn, setSoundOn] = useState(sfx.isEnabled())
   const dailyChallenges  = useGameStore(s => s.dailyChallenges)
   if (!player) return null
 
@@ -59,6 +61,12 @@ export const MainMenu: React.FC = () => {
             <span className="font-nunito font-bold text-sm" style={{color:'#5a3e00'}}>{player.gold}</span>
           </div>
         </div>
+          <button
+            onClick={() => { const next = !soundOn; setSoundOn(next); sfx.setEnabled(next); if (next) sfx.tap() }}
+            className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 active:scale-90 transition-transform"
+            style={{background:"rgba(255,255,255,0.12)",border:"1px solid rgba(255,255,255,0.2)",fontSize:"1rem"}}>
+            {soundOn ? "🔊" : "🔇"}
+          </button>
       </div>
 
       {/* Content */}

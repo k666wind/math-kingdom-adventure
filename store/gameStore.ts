@@ -172,7 +172,9 @@ interface GameStore {
   streak: { count: number; lastDate: string }
   dailyChallenges: DailyChallenge[]
   todayStats: ReturnType<typeof defaultTodayStats>
+  unlockedAchievements: string[]
 
+  _unlockAch: (id: string) => void
   navigate: (screen: AppScreen, extra?: Partial<NavigationState>) => void
   createPlayer: (name: string) => void
   resetGame: () => void
@@ -212,6 +214,12 @@ export const useGameStore = create<GameStore>()(
       streak: { count: 0, lastDate: '' },
       dailyChallenges: [],
       todayStats: defaultTodayStats(),
+      unlockedAchievements: [],
+
+      // ── Achievement helper ────────────────────────────────────
+      // Idempotent: silently ignores if already unlocked
+      _unlockAch: (id: string) =>
+        set(s => s.unlockedAchievements.includes(id) ? {} : { unlockedAchievements: [...s.unlockedAchievements, id] }),
 
       // ── Navigation ──────────────────────────────────────────
       navigate: (screen, extra = {}) =>
@@ -225,6 +233,7 @@ export const useGameStore = create<GameStore>()(
           nav: { screen: 'main_menu' },
           dailyChallenges: buildDailyChallenges(player.level),
           todayStats: defaultTodayStats(),
+      unlockedAchievements: [],
         })
       },
 
@@ -250,6 +259,7 @@ export const useGameStore = create<GameStore>()(
           set(s => ({
             dailyChallenges: buildDailyChallenges(s.player?.level ?? 1),
             todayStats: defaultTodayStats(),
+      unlockedAchievements: [],
             streak: {
               count: s.streak.lastDate === yesterdayStr ? s.streak.count + 1 : 1,
               lastDate: today,
@@ -294,6 +304,7 @@ export const useGameStore = create<GameStore>()(
           status: 'question',
           lastAnswerCorrect: null,
           timerBonus: speedBonus + player.speedBonus,
+          drops: [],
         }
         set({ battle, nav: { screen: 'battle', regionId, battleId } })
       },
@@ -401,6 +412,15 @@ export const useGameStore = create<GameStore>()(
           }
         })
 
+        // 2C-4: combo + question-count achievements
+        const { _unlockAch } = get()
+        if (newCombo >= 5)  _unlockAch("combo5")
+        if (newCombo >= 10) _unlockAch("combo10")
+        if (correct) {
+          const totalQ = Object.values(get().topicProgress).reduce((s,tp) => s + (tp.correct ?? 0), 0)
+          if (totalQ >= 100) _unlockAch("100q")
+        }
+
         return { correct, expGained, goldGained }
       },
 
@@ -463,6 +483,34 @@ export const useGameStore = create<GameStore>()(
               },
             },
           }
+          // ── Boss drop processing ──────────────────────────────
+          const drops: string[] = []
+          if (battle.monster.dropTable && battle.monster.dropTable.length > 0) {
+            for (const drop of battle.monster.dropTable) {
+              if (Math.random() < drop.dropChance) {
+                if (drop.itemType === 'equipment') {
+                  if (!newPlayer.ownedEquipment.includes(drop.itemId)) {
+                    newPlayer = { ...newPlayer, ownedEquipment: [...newPlayer.ownedEquipment, drop.itemId] }
+                    drops.push(drop.itemId)
+                  }
+                } else if (drop.itemType === 'pet_egg') {
+                  // Strip _egg suffix to get pet id (e.g. wise_owl_egg → wise_owl)
+                  const petId = drop.itemId.replace(/_egg$/, '')
+                  if (!newPlayer.ownedPets.includes(petId)) {
+                    newPlayer = { ...newPlayer, ownedPets: [...newPlayer.ownedPets, petId] }
+                    drops.push(petId)
+                  }
+                } else if (drop.itemType === 'crystal') {
+                  newPlayer = { ...newPlayer, crystals: newPlayer.crystals + 1 }
+                  drops.push('crystal')
+                }
+              }
+            }
+          }
+
+          // 2C-2: Full HP restore after every battle (Option A — friendly)
+          newPlayer = { ...newPlayer, hp: newPlayer.maxHp }
+
           const { player: levelled, levelUps } = processLevelUp(newPlayer)
 
           // Update daily challenge: monsters_defeated + perfect_battle
@@ -477,7 +525,7 @@ export const useGameStore = create<GameStore>()(
             })
             return {
               player: levelled,
-              battle: s.battle ? { ...s.battle, status: 'victory' } : null,
+              battle: s.battle ? { ...s.battle, status: 'victory', drops } : null,
               pendingLevelUps: [...s.pendingLevelUps, ...levelUps],
               dailyChallenges: updatedChallenges,
               todayStats: {
@@ -487,8 +535,27 @@ export const useGameStore = create<GameStore>()(
               },
             }
           })
+
+          // 2C-4: Achievement triggers on victory
+          const { _unlockAch } = get()
+          const _fp = get().player
+          if (_fp) {
+            if (_fp.completedBattles.length >= 1)              _unlockAch("first_win")
+            if (isPerfect)                                     _unlockAch("perfect")
+            if (_fp.level >= 5)                                _unlockAch("level5")
+            if (_fp.level >= 10)                               _unlockAch("level10")
+            if (_fp.level >= 20)                               _unlockAch("level20")
+            if (_fp.ownedPets.length >= 1)                     _unlockAch("pet1")
+            if (Object.values(_fp.equippedItems).some(Boolean)) _unlockAch("equip1")
+          }
+          if (get().streak.count >= 7) _unlockAch("streak7")
+
         } else {
-          set(s => ({ battle: s.battle ? { ...s.battle, status: 'defeat' } : null }))
+          // 2C-2: Full HP restore even on defeat
+          set(s => ({
+            battle: s.battle ? { ...s.battle, status: 'defeat' } : null,
+            player: s.player ? { ...s.player, hp: s.player.maxHp } : null,
+          }))
         }
       },
 
@@ -551,6 +618,8 @@ export const useGameStore = create<GameStore>()(
           if (item.stats.luckBonus)  p.luckBonus  += item.stats.luckBonus
           return { player: p }
         })
+      }
+      get()._unlockAch("equip1") // 2C-4: first equip
       },
 
       unequipSlot: (slot) => {
@@ -582,6 +651,7 @@ export const useGameStore = create<GameStore>()(
             ownedEquipment: [...s.player.ownedEquipment, itemId],
           } : null,
         }))
+        get()._unlockAch("shop1") // 2C-4
         return true
       },
 
@@ -592,6 +662,8 @@ export const useGameStore = create<GameStore>()(
           if (s.player.activePets.includes(petId)) return s
           return { player: { ...s.player, activePets: [...s.player.activePets, petId] } }
         })
+      }
+      get()._unlockAch("pet1") // 2C-4: first pet activated
       },
 
       deactivatePet: (petId) => {
@@ -628,7 +700,8 @@ export const useGameStore = create<GameStore>()(
           parentSettings: s.parentSettings,
           streak:         s.streak,
           dailyChallenges: s.dailyChallenges,
-          todayStats:     s.todayStats,
+          todayStats:          s.todayStats,
+          unlockedAchievements: s.unlockedAchievements,
         }
         return JSON.stringify(saveData, null, 2)
       },
@@ -644,7 +717,8 @@ export const useGameStore = create<GameStore>()(
             parentSettings:  data.parentSettings  ?? defaultParentSettings(),
             streak:          data.streak          ?? { count: 0, lastDate: '' },
             dailyChallenges: data.dailyChallenges ?? [],
-            todayStats:      data.todayStats      ?? defaultTodayStats(),
+            todayStats:           data.todayStats           ?? defaultTodayStats(),
+            unlockedAchievements: data.unlockedAchievements ?? [],
             nav: { screen: 'main_menu' },
           })
           return true
@@ -663,7 +737,8 @@ export const useGameStore = create<GameStore>()(
         parentSettings:  s.parentSettings,
         streak:          s.streak,
         dailyChallenges: s.dailyChallenges,
-        todayStats:      s.todayStats,
+        todayStats:           s.todayStats,
+        unlockedAchievements: s.unlockedAchievements,
       }),
     }
   )
