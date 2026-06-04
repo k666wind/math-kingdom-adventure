@@ -417,7 +417,7 @@ export const useGameStore = create<GameStore>()(
         if (newCombo >= 5)  _unlockAch("combo5")
         if (newCombo >= 10) _unlockAch("combo10")
         if (correct) {
-          const totalQ = Object.values(get().topicProgress).reduce((s,tp) => s + (tp.correct ?? 0), 0)
+          const totalQ = Object.values(get().topicProgress).reduce((s,tp) => s + (tp.totalCorrect ?? 0), 0)
           if (totalQ >= 100) _unlockAch("100q")
         }
 
