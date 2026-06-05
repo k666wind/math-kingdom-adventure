@@ -1237,7 +1237,7 @@ export function generateQuadratics(diff: DifficultyLevel): Question {
   if (diff === 'bronze') {
     // Simple: x² + bx = 0 → x(x + b) = 0 → roots: 0 and -b
     const b = rand(2, 9)
-    const root1 = 0, root2 = -b
+    const root2 = -b
     const correct = `x = 0 or x = ${root2}`
     const { answers, correctIndex } = buildMCQ(correct, [
       `x = 0 or x = ${b}`,
