@@ -3,7 +3,7 @@ import { useGameStore } from '../../store/gameStore'
 import { REGIONS } from '../../data/gameData'
 import type { Region } from '../../types'
 
-const RegionCard: React.FC<{region: Region; unlocked: boolean; onSelect: ()=>void}> = ({region, unlocked, onSelect}) => {
+const RegionCard: React.FC<{region: Region; unlocked: boolean; isNew: boolean; onSelect: ()=>void}> = ({region, unlocked, isNew, onSelect}) => {
   return (
     <button onClick={unlocked ? onSelect : undefined}
       className="relative rounded-2xl p-3 text-center flex flex-col items-center justify-center gap-1 min-h-[90px] active:scale-95 transition-transform"
@@ -11,6 +11,13 @@ const RegionCard: React.FC<{region: Region; unlocked: boolean; onSelect: ()=>voi
               border: unlocked ? '1.5px solid rgba(255,255,255,0.3)' : '1.5px solid rgba(255,255,255,0.08)'}}>
       {!unlocked && (
         <div className="absolute top-2 right-2 text-xs" style={{color:'rgba(255,255,255,0.4)'}}>🔒</div>
+      )}
+      {/* 2D-6: New! badge — pulsing until player taps in */}
+      {isNew && unlocked && (
+        <div className="absolute -top-2 -right-2 px-2 py-0.5 rounded-full font-fredoka text-xs z-10 animate-bounce"
+          style={{background:'#FF6B35', color:'white', boxShadow:'0 0 8px rgba(255,107,53,0.7)'}}>
+          New!
+        </div>
       )}
       <span className="text-3xl" style={{opacity: unlocked ? 1 : 0.3}}>{region.emoji}</span>
       <div className="font-fredoka text-xs leading-tight" style={{color: unlocked ? 'white' : 'rgba(255,255,255,0.3)'}}>
@@ -113,10 +120,12 @@ const RegionDetail: React.FC<{region: Region; onClose: ()=>void}> = ({region, on
 }
 
 export const WorldMap: React.FC = () => {
-  const player   = useGameStore(s => s.player)
-  const navigate = useGameStore(s => s.navigate)
+  const player          = useGameStore(s => s.player)
+  const navigate        = useGameStore(s => s.navigate)
+  const markRegionSeen  = useGameStore(s => s.markRegionSeen)
   const [selected, setSelected] = useState<Region|null>(null)
   if (!player) return null
+  const seenRegions = player.seenRegions ?? []
 
   return (
     <div className="h-full flex flex-col overflow-hidden"
@@ -129,7 +138,7 @@ export const WorldMap: React.FC = () => {
         </div>
         <div className="flex items-center gap-2 rounded-full px-3 py-1.5"
           style={{background:'rgba(255,255,255,0.15)'}}>
-          <span className="text-sm">🧙</span>
+          <span className="text-sm">{player.activeSkin ?? "🧙"}</span>
           <span className="font-nunito text-white text-sm">Lv.{player.level}</span>
           <span className="text-sm ml-1">🪙</span>
           <span className="font-nunito text-white text-sm">{player.gold}</span>
@@ -142,7 +151,8 @@ export const WorldMap: React.FC = () => {
           {REGIONS.map(region => (
             <RegionCard key={region.id} region={region}
               unlocked={player.unlockedRegions.includes(region.id)}
-              onSelect={() => setSelected(region)}/>
+              isNew={player.unlockedRegions.includes(region.id) && !seenRegions.includes(region.id)}
+              onSelect={() => { markRegionSeen(region.id); setSelected(region) }}/>
           ))}
         </div>
       </div>

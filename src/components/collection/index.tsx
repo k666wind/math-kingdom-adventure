@@ -4,23 +4,55 @@ import { EQUIPMENT_DATA, PETS_DATA } from '../../data/gameData'
 import type { Equipment, EquipmentSlot } from '../../types'
 
 const rarityColor: Record<string,string> = {
-  common: '#888', uncommon: '#4a9a4a', rare: '#4a6aaa', legendary: '#9a4aaa'
+  common: '#888', uncommon: '#4a9a4a', rare: '#4a6aaa', legendary: '#9a4aaa', epic: '#cc44aa'
 }
 const rarityBg: Record<string,string> = {
   common: 'rgba(136,136,136,0.1)', uncommon: 'rgba(74,154,74,0.1)',
-  rare: 'rgba(74,106,170,0.1)', legendary: 'rgba(154,74,170,0.15)'
+  rare: 'rgba(74,106,170,0.1)', legendary: 'rgba(154,74,170,0.15)', epic: 'rgba(204,68,170,0.12)'
+}
+
+// ─── 2D-2: Live stat labels ────────────────────────────────────────────────
+const STAT_LABELS: Record<string, { icon: string; label: string }> = {
+  hp:                   { icon: '❤️', label: 'HP' },
+  attack:               { icon: '⚔️', label: 'ATK' },
+  defence:              { icon: '🛡️', label: 'DEF' },
+  speedBonus:           { icon: '⚡', label: 'SPD bonus' },
+  luckBonus:            { icon: '🍀', label: 'LCK bonus' },
+  expBonus:             { icon: '✨', label: 'EXP bonus' },
+  comboMultiplierBonus: { icon: '🔥', label: 'Combo boost' },
 }
 
 export const CollectionEquipment: React.FC = () => {
-  const player     = useGameStore(s => s.player)
-  const navigate   = useGameStore(s => s.navigate)
-  const equipItem  = useGameStore(s => s.equipItem)
+  const player      = useGameStore(s => s.player)
+  const navigate    = useGameStore(s => s.navigate)
+  const equipItem   = useGameStore(s => s.equipItem)
   const unequipSlot = useGameStore(s => s.unequipSlot)
   const [detail, setDetail] = useState<Equipment | null>(null)
   if (!player) return null
 
   const owned = EQUIPMENT_DATA.filter(e => player.ownedEquipment.includes(e.id))
   const slotIcon: Record<EquipmentSlot, string> = { weapon: '⚔️', armour: '🛡️', accessory: '💍', hat: '🎩' }
+
+  // ── 2D-2: compute stat diff when detail item would be equipped ─────────
+  const getStatDiff = (item: Equipment): Record<string, number> => {
+    const existingId = player.equippedItems[item.slot]
+    const existing   = existingId ? EQUIPMENT_DATA.find(e => e.id === existingId) : null
+    const diff: Record<string, number> = {}
+    // New item's stats
+    for (const [k, v] of Object.entries(item.stats)) {
+      if (v) diff[k] = (diff[k] ?? 0) + v
+    }
+    // Subtract existing item's stats
+    if (existing) {
+      for (const [k, v] of Object.entries(existing.stats)) {
+        if (v) diff[k] = (diff[k] ?? 0) - v
+      }
+    }
+    return diff
+  }
+
+  const isDetailEquipped = detail ? Object.values(player.equippedItems).includes(detail.id) : false
+  const statDiff         = detail && !isDetailEquipped ? getStatDiff(detail) : null
 
   return (
     <div className="h-full flex flex-col" style={{ background: '#FFF8F0' }}>
@@ -52,6 +84,30 @@ export const CollectionEquipment: React.FC = () => {
               </div>
             )
           })}
+        </div>
+      </div>
+
+      {/* 2D-2: Live Stats Panel ─────────────────────────────────────── */}
+      <div className="mx-4 mt-3 rounded-2xl px-4 py-3"
+        style={{ background: 'rgba(45,27,105,0.06)', border: '1px solid rgba(45,27,105,0.1)' }}>
+        <p className="font-nunito text-xs font-bold mb-2" style={{ color: '#2D1B69' }}>
+          Character Stats
+        </p>
+        <div className="grid grid-cols-3 gap-x-4 gap-y-1">
+          {[
+            { icon: '❤️', label: 'HP',  val: `${player.hp}/${player.maxHp}` },
+            { icon: '⚔️', label: 'ATK', val: player.attack },
+            { icon: '🛡️', label: 'DEF', val: player.defence },
+            { icon: '⚡', label: 'SPD', val: `+${player.speedBonus}s` },
+            { icon: '🍀', label: 'LCK', val: `+${player.luckBonus}%` },
+            { icon: '🪙', label: 'Gold', val: player.gold },
+          ].map(stat => (
+            <div key={stat.label} className="flex items-center gap-1">
+              <span className="text-xs">{stat.icon}</span>
+              <span className="font-nunito text-xs" style={{ color: '#888' }}>{stat.label}</span>
+              <span className="font-nunito text-xs font-bold ml-auto" style={{ color: '#2D1B69' }}>{stat.val}</span>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -87,7 +143,7 @@ export const CollectionEquipment: React.FC = () => {
       {/* Detail modal */}
       {detail && (
         <div className="fixed inset-0 z-50 flex items-end" style={{ background: 'rgba(0,0,0,0.6)' }}>
-          <div className="w-full max-w-[480px] mx-auto rounded-t-3xl p-5 pb-8"
+          <div className="w-full max-w-[480px] mx-auto rounded-t-3xl p-5 pb-8 max-h-[85vh] overflow-y-auto"
             style={{ background: '#FFF8F0' }}>
             <div className="flex items-center gap-3 mb-4">
               <span className="text-4xl">{detail.emoji}</span>
@@ -100,23 +156,44 @@ export const CollectionEquipment: React.FC = () => {
               </div>
               <button onClick={() => setDetail(null)} className="text-2xl text-gray-400">✕</button>
             </div>
-            <p className="font-nunito text-sm mb-3" style={{ color: '#555' }}>{detail.description}</p>
+            <p className="font-nunito text-sm mb-2" style={{ color: '#555' }}>{detail.description}</p>
             <p className="font-nunito text-xs italic mb-4" style={{ color: '#999' }}>{detail.loreText}</p>
 
-            {/* Stats */}
-            <div className="rounded-xl p-3 mb-4" style={{ background: 'rgba(45,27,105,0.06)' }}>
+            {/* Item stats */}
+            <div className="rounded-xl p-3 mb-3" style={{ background: 'rgba(45,27,105,0.06)' }}>
+              <p className="font-nunito text-xs font-bold mb-2" style={{ color: '#555' }}>Item Stats</p>
               {Object.entries(detail.stats).map(([k, v]) => v ? (
                 <div key={k} className="flex justify-between py-1">
-                  <span className="font-nunito text-sm capitalize" style={{ color: '#666' }}>
-                    {k.replace(/([A-Z])/g,' $1').toLowerCase()}
+                  <span className="font-nunito text-sm" style={{ color: '#666' }}>
+                    {STAT_LABELS[k]?.icon ?? ''} {STAT_LABELS[k]?.label ?? k}
                   </span>
                   <span className="font-nunito text-sm font-bold" style={{ color: '#2D1B69' }}>+{v}</span>
                 </div>
               ) : null)}
             </div>
 
+            {/* 2D-2: Stat diff preview — only for unequipped items */}
+            {statDiff && Object.values(statDiff).some(v => v !== 0) && (
+              <div className="rounded-xl p-3 mb-4" style={{ background: 'rgba(255,107,53,0.06)', border: '1px solid rgba(255,107,53,0.2)' }}>
+                <p className="font-nunito text-xs font-bold mb-2" style={{ color: '#FF6B35' }}>
+                  {player.equippedItems[detail.slot] ? 'Stat Change if Equipped' : 'Stats You\'ll Gain'}
+                </p>
+                {Object.entries(statDiff).filter(([,v]) => v !== 0).map(([k, v]) => (
+                  <div key={k} className="flex justify-between py-0.5">
+                    <span className="font-nunito text-sm" style={{ color: '#666' }}>
+                      {STAT_LABELS[k]?.icon ?? ''} {STAT_LABELS[k]?.label ?? k}
+                    </span>
+                    <span className="font-nunito text-sm font-bold"
+                      style={{ color: v > 0 ? '#6BCB77' : '#FF4D6D' }}>
+                      {v > 0 ? `+${v}` : v}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
             <div className="flex gap-3">
-              {Object.values(player.equippedItems).includes(detail.id) ? (
+              {isDetailEquipped ? (
                 <button onClick={() => { unequipSlot(detail.slot); setDetail(null) }}
                   className="flex-1 py-3 rounded-2xl font-fredoka text-base active:scale-95"
                   style={{ background: 'rgba(255,77,109,0.15)', color: '#FF4D6D', border: '1px solid #FF4D6D' }}>
@@ -126,7 +203,7 @@ export const CollectionEquipment: React.FC = () => {
                 <button onClick={() => { equipItem(detail.id, detail.slot); setDetail(null) }}
                   className="flex-1 py-3 rounded-2xl font-fredoka text-base text-white active:scale-95"
                   style={{ background: '#FF6B35' }}>
-                  Equip
+                  Equip ✓
                 </button>
               )}
             </div>

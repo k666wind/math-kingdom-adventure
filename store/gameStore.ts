@@ -6,7 +6,7 @@ import type {
   ParentSettings, QuestionResult,
   EquipmentSlot, OwnedPet, DailyChallenge, Reward,
 } from '../types'
-import { REGIONS, MONSTERS, EQUIPMENT_DATA, LEVEL_REWARDS } from '../data/gameData'
+import { REGIONS, MONSTERS, EQUIPMENT_DATA, LEVEL_REWARDS, SKINS_DATA } from '../data/gameData'
 import { generateQuestion } from '../engine/questionGenerators'
 
 // ─── Helpers ─────────────────────────────────────────────────
@@ -39,6 +39,8 @@ const createDefaultPlayer = (name: string): Player => ({
   ownedEquipment: [],
   ownedPets: [],
   battleRecords: {},
+  seenRegions: [],
+  activeSkin: "🧙",
 })
 
 const defaultParentSettings = (): ParentSettings => ({
@@ -176,6 +178,7 @@ interface GameStore {
 
   _unlockAch: (id: string) => void
   navigate: (screen: AppScreen, extra?: Partial<NavigationState>) => void
+  markRegionSeen: (regionId: string) => void   // 2D-6
   createPlayer: (name: string) => void
   resetGame: () => void
   startBattle: (regionId: RegionId, battleId: string) => void
@@ -186,6 +189,9 @@ interface GameStore {
   equipItem: (itemId: string, slot: EquipmentSlot) => void
   unequipSlot: (slot: EquipmentSlot) => void
   buyEquipment: (itemId: string) => boolean
+  buyCrystalItem: (itemId: string) => boolean       // 2D-7
+  buySkin: (skinId: string) => boolean               // 2D-8
+  equipSkin: (skinId: string) => void                // 2D-8
   activatePet: (petId: string) => void
   deactivatePet: (petId: string) => void
   setParentPin: (pin: string) => void
@@ -224,6 +230,11 @@ export const useGameStore = create<GameStore>()(
       // ── Navigation ──────────────────────────────────────────
       navigate: (screen, extra = {}) =>
         set(s => ({ nav: { ...s.nav, screen, ...extra } })),
+
+      markRegionSeen: (regionId) =>
+        set(s => s.player && !(s.player.seenRegions ?? []).includes(regionId)
+          ? { player: { ...s.player, seenRegions: [...(s.player.seenRegions ?? []), regionId] } }
+          : {}),
 
       // ── Player creation ─────────────────────────────────────
       createPlayer: (name) => {
@@ -316,7 +327,8 @@ export const useGameStore = create<GameStore>()(
           return { correct: false, expGained: 0, goldGained: 0 }
 
         const q = battle.currentQuestion
-        const correct = selectedIndex === q.correctIndex
+        const isTimeout = selectedIndex === -1
+        const correct = isTimeout ? false : selectedIndex === q.correctIndex
         const newCombo = correct ? battle.comboCount + 1 : 0
         const comboMult = newCombo >= 10 ? 2.0 : newCombo >= 5 ? 1.5 : newCombo >= 3 ? 1.2 : 1.0
 
@@ -345,7 +357,26 @@ export const useGameStore = create<GameStore>()(
         } else {
           const def = player.equippedItems.armour
             ? (EQUIPMENT_DATA.find(e => e.id === player.equippedItems.armour)?.stats.defence ?? 0) : 0
-          newPlayerHp = Math.max(0, battle.playerCurrentHp - Math.max(1, battle.monster.attackDamage - def))
+          let baseDamage = Math.max(1, battle.monster.attackDamage - def)
+
+          // 2D-9: Boss special ability — onWrongAnswer: boss heals; onLowHp: double damage
+          const ability = battle.monster.specialAbility
+          if (ability) {
+            const hpPct = (battle.monsterCurrentHp / battle.monster.maxHp) * 100
+            if (ability.triggerCondition === 'consecutive_wrong_2') {
+              // Boss heals on wrong answer if it already has an ability
+              newMonsterHp = Math.min(battle.monster.maxHp, battle.monsterCurrentHp + ability.effectValue)
+            }
+            if (ability.triggerCondition === 'hp_25' && hpPct <= 25 && ability.effect === 'double_damage') {
+              baseDamage = baseDamage * 2
+            }
+            if (ability.triggerCondition === 'hp_50' && hpPct <= 50 && ability.effect === 'reduce_timer') {
+              // Timer reduction is cosmetic here (timer already running in UI) — flag in battle state
+              // Future: could signal UI to reduce timer
+            }
+          }
+
+          newPlayerHp = Math.max(0, battle.playerCurrentHp - baseDamage)
         }
 
         const tpKey = `${q.type}_${q.tier}`
@@ -462,10 +493,20 @@ export const useGameStore = create<GameStore>()(
           const stars = calcStars(battle.questionsAnswered, true)
           const isPerfect = stars === 3
 
+          // 2D-3: Apply luckBonus (lucky_boots +10% + lucky_fox pet +15%) to gold
+          const luckBonusPct = player.luckBonus + (player.activePets.includes('lucky_fox') ? 15 : 0)
+          const goldMult = 1 + (luckBonusPct / 100)
+          const finalGold = Math.floor((battle.goldGained + baseGold + (isPerfect ? 30 : 0)) * goldMult)
+
+          // 2D-3: Apply gold_ring +15% EXP bonus if equipped
+          const goldRingEquipped = Object.values(player.equippedItems).includes('gold_ring')
+          const expMult = goldRingEquipped ? 1.15 : 1.0
+          const finalExp = Math.floor((battle.expGained + battle.monster.expReward + (isPerfect ? 30 : 0)) * expMult)
+
           let newPlayer = {
             ...player,
-            exp:   player.exp + battle.expGained + battle.monster.expReward + (isPerfect ? 30 : 0),
-            gold:  player.gold + battle.goldGained + baseGold + (isPerfect ? 30 : 0),
+            exp:   player.exp + finalExp,
+            gold:  player.gold + finalGold,
             completedBattles: player.completedBattles.includes(battle.battleId)
               ? player.completedBattles
               : [...player.completedBattles, battle.battleId],
@@ -653,6 +694,38 @@ export const useGameStore = create<GameStore>()(
         get()._unlockAch("shop1") // 2C-4
         return true
       },
+
+      // ── Crystal shop (2D-7) ──────────────────────────────────
+      buyCrystalItem: (itemId) => {
+        const { player } = get()
+        if (!player) return false
+        const item = EQUIPMENT_DATA.find(e => e.id === itemId)
+        if (!item || !item.crystalPrice) return false
+        if (player.crystals < item.crystalPrice) return false
+        if (player.ownedEquipment.includes(itemId)) return false
+        set(s => ({
+          player: s.player ? {
+            ...s.player,
+            crystals: s.player.crystals - (item.crystalPrice as number),
+            ownedEquipment: [...s.player.ownedEquipment, itemId],
+          } : null,
+        }))
+        return true
+      },
+
+      // ── Skin shop (2D-8) ──────────────────────────────────────
+      buySkin: (skinId) => {
+        const { player } = get()
+        if (!player) return false
+        const skin = SKINS_DATA.find(s => s.id === skinId)
+        if (!skin || !skin.crystalPrice) return false
+        if (player.crystals < skin.crystalPrice) return false
+        set(s => ({ player: s.player ? { ...s.player, crystals: s.player.crystals - (skin.crystalPrice ?? 0) } : null }))
+        return true
+      },
+
+      equipSkin: (skinId) =>
+        set(s => ({ player: s.player ? { ...s.player, activeSkin: skinId } : null })),
 
       // ── Pets ─────────────────────────────────────────────────
       activatePet: (petId) => {

@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { sfx } from '../../engine/audioEngine'
 import { useGameStore } from '../../store/gameStore'
 import { REGIONS } from '../../data/gameData'
+import { APP_VERSION } from '../../version'
 
 export const MainMenu: React.FC = () => {
   const player           = useGameStore(s => s.player)
@@ -43,7 +44,7 @@ export const MainMenu: React.FC = () => {
         <div className="flex items-center gap-3 mb-3">
           <div className="w-12 h-12 rounded-full flex items-center justify-center text-2xl flex-shrink-0"
             style={{background:'#FF6B35'}}>
-            🧙
+            {player.activeSkin ?? '🧙'}
           </div>
           <div className="flex-1 min-w-0">
             <div className="font-fredoka text-white text-base">{player.name}</div>
@@ -104,6 +105,12 @@ export const MainMenu: React.FC = () => {
               <div className="font-fredoka text-sm" style={{color:'#2D1B69'}}>{card.label}</div>
             </button>
           ))}
+        </div>
+
+        {/* Version */}
+        <div className="mt-4 text-center font-nunito text-xs"
+          style={{color:"rgba(45,27,105,0.25)"}}>
+          v{APP_VERSION}
         </div>
       </div>
     </div>

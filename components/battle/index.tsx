@@ -85,6 +85,9 @@ export const BattleScreen: React.FC = () => {
   const [shake,           setShake]           = useState(false)
   const [showRetreat,     setShowRetreat]     = useState(false)
   const [usedFiftyFifty,  setUsedFiftyFifty]  = useState(false)
+  const [robotDogUsed,    setRobotDogUsed]    = useState(false)
+  const [showAbsorbed,    setShowAbsorbed]    = useState(false)
+  const [showMathCatHint, setShowMathCatHint] = useState(false)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const floatKey = useRef(0)
 
@@ -96,6 +99,8 @@ export const BattleScreen: React.FC = () => {
       const t = (battle.currentQuestion.timeLimitSeconds ?? 15) + (player?.speedBonus ?? 0)
       setSelected(null)
       setUsedFiftyFifty(false)
+      setShowAbsorbed(false)
+      setShowMathCatHint(false)
       setTimeLeft(t)
       setTotalTime(t)
       clearTimer()
@@ -117,6 +122,38 @@ export const BattleScreen: React.FC = () => {
   const handleAnswer = useCallback((idx: number) => {
     if (selected !== null || !battle) return
     clearTimer()
+
+    // 2D-5: Robot Dog — absorbs first wrong answer per battle (no HP damage)
+    const q_now = battle.currentQuestion
+    const isWrong = idx !== -1 && q_now && idx !== q_now.correctIndex
+    if (isWrong && player?.activePets.includes('robot_dog') && !robotDogUsed) {
+      setRobotDogUsed(true)
+      setShowAbsorbed(true)
+      setTimeout(() => setShowAbsorbed(false), 1800)
+      // Still record as wrong for topic progress but skip HP damage
+      // We call submitAnswer with the wrong index but patch the result display
+      setSelected(idx)
+      submitAnswer(idx)
+      floatKey.current++
+      sfx.wrong()
+      setDmgFloat({ val: `🤖 Absorbed!`, key: floatKey.current })
+      // Restore player HP to what it was (undo damage) — achieved by restoring playerCurrentHp
+      // Simpler: set playerCurrentHp back in store after submit
+      setTimeout(() => {
+        useGameStore.setState(s => s.battle
+          ? { battle: { ...s.battle!, playerCurrentHp: Math.min(s.battle!.playerCurrentHp + (s.battle!.monster.attackDamage), s.player?.maxHp ?? 100) } }
+          : {})
+      }, 50)
+      setTimeout(() => {
+        const freshBattle = useGameStore.getState().battle
+        if (!freshBattle) return
+        if (freshBattle.monsterCurrentHp <= 0) { sfx.victory(); endBattle('victory') }
+        else if (freshBattle.playerCurrentHp <= 0) { sfx.defeat(); endBattle('defeat') }
+        else nextQuestion()
+      }, 1600)
+      return
+    }
+
     setSelected(idx)
     const { correct } = submitAnswer(idx)
     floatKey.current++
@@ -128,6 +165,11 @@ export const BattleScreen: React.FC = () => {
       setShake(true)
       setDmgFloat({ val: `💥 -HP`, key: floatKey.current })
       setTimeout(() => setShake(false), 500)
+      // 2D-5: Math Cat — show hint from explanation for 2 seconds on wrong answer
+      if (player?.activePets.includes('math_cat')) {
+        setShowMathCatHint(true)
+        setTimeout(() => setShowMathCatHint(false), 2000)
+      }
     }
     // Auto-advance after feedback
     setTimeout(() => {
@@ -343,6 +385,13 @@ export const BattleScreen: React.FC = () => {
             {dmgFloat.val}
           </div>
         )}
+        {/* 2D-5: Robot Dog absorbed flash */}
+        {showAbsorbed && (
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 font-fredoka text-base px-3 py-1 rounded-xl z-10 animate-pop-in"
+            style={{ background: 'rgba(78,205,196,0.25)', border: '1px solid #4ECDC4', color: '#4ECDC4' }}>
+            🤖 Absorbed!
+          </div>
+        )}
       </div>
 
       <div className="mx-4 h-px" style={{ background: 'rgba(255,255,255,0.1)' }} />
@@ -364,6 +413,16 @@ export const BattleScreen: React.FC = () => {
             {/* Timer */}
             <TimerBar seconds={timeLeft} total={totalTime} />
 
+            {/* 2D-5: Math Cat hint bubble — shows on wrong answer for 2s */}
+            {showMathCatHint && q && (
+              <div className="rounded-xl px-4 py-2 animate-slide-down"
+                style={{ background: 'rgba(255,230,109,0.15)', border: '1px solid #FFE66D' }}>
+                <p className="font-nunito text-sm text-center" style={{ color: '#FFE66D' }}>
+                  🐱 Hint: {q.explanation}
+                </p>
+              </div>
+            )}
+
             {/* Feedback explanation */}
             {selected !== null && (
               <div className="rounded-xl px-4 py-2 animate-slide-down"
@@ -384,6 +443,18 @@ export const BattleScreen: React.FC = () => {
                   onClick={() => handleAnswer(i)} />
               ))}
             </div>
+
+            {/* 2D-5: Robot Dog status — shows if active */}
+            {player.activePets.includes('robot_dog') && (
+              <div className="w-full mt-1 py-2 rounded-2xl font-fredoka text-sm text-center"
+                style={{
+                  background: robotDogUsed ? 'rgba(255,255,255,0.05)' : 'rgba(78,205,196,0.12)',
+                  border: `1px solid ${robotDogUsed ? 'rgba(255,255,255,0.08)' : 'rgba(78,205,196,0.4)'}`,
+                  color: robotDogUsed ? 'rgba(255,255,255,0.2)' : 'rgba(78,205,196,0.8)',
+                }}>
+                🤖 Robot Dog {robotDogUsed ? '(Shield Used)' : '— Shield Ready'}
+              </div>
+            )}
 
             {/* 50/50 Wise Owl button — only if pet is active, one use per question */}
             {player.activePets.includes('wise_owl') && (
@@ -414,7 +485,7 @@ export const BattleScreen: React.FC = () => {
       <div className="mx-4 mb-4 mt-2 rounded-2xl px-3 py-2.5 flex items-center gap-3"
         style={{ background: 'rgba(0,0,0,0.3)' }}>
         <div className="w-9 h-9 rounded-full flex items-center justify-center text-lg flex-shrink-0"
-          style={{ background: '#FF6B35' }}>🧙</div>
+          style={{ background: '#FF6B35' }}>{player.activeSkin ?? '🧙'}</div>
         <div className="flex-1">
           <div className="font-nunito text-xs text-white/70">
             HP {battle.playerCurrentHp}/{player.maxHp}

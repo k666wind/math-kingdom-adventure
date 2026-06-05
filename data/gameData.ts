@@ -1,4 +1,4 @@
-import type { Monster, Region, Equipment, Pet } from '../types'
+import type { Monster, Region, Equipment, Pet, Skin } from '../types'
 
 // ─────────────────────────────────────────────────────────────
 // MONSTERS
@@ -546,6 +546,34 @@ export const EQUIPMENT_DATA: Equipment[] = [
     stats: { speedBonus: 5 }, upgradeLevel: 0, shopPrice: null,
     obtainMethod: 'level_reward', requiredLevel: 30,
   },
+  // 2D-7: Crystal shop exclusive items
+  {
+    id: 'crystal_blade', name: 'Crystal Blade', emoji: '🔮',
+    slot: 'weapon', rarity: 'epic',
+    description: 'A blade forged from pure Number Crystals.',
+    loreText: 'Only the worthy may wield its power.',
+    stats: { attack: 15, comboMultiplierBonus: 0.1 }, upgradeLevel: 0,
+    shopPrice: null, crystalPrice: 5,
+    obtainMethod: 'crystal_shop', requiredLevel: 15,
+  },
+  {
+    id: 'mana_shield', name: 'Mana Shield', emoji: '🌟',
+    slot: 'armour', rarity: 'epic',
+    description: 'Absorbs magical attacks.',
+    loreText: 'Woven from starlight and theorems.',
+    stats: { hp: 40, defence: 10 }, upgradeLevel: 0,
+    shopPrice: null, crystalPrice: 3,
+    obtainMethod: 'crystal_shop', requiredLevel: 12,
+  },
+  {
+    id: 'wisdom_amulet', name: 'Wisdom Amulet', emoji: '📿',
+    slot: 'accessory', rarity: 'epic',
+    description: 'Doubles EXP on perfect answers.',
+    loreText: 'Scholars have sought this for centuries.',
+    stats: { expBonus: 25 }, upgradeLevel: 0,
+    shopPrice: null, crystalPrice: 4,
+    obtainMethod: 'crystal_shop', requiredLevel: 10,
+  },
 ]
 
 // ─────────────────────────────────────────────────────────────
@@ -625,3 +653,23 @@ export const LEVEL_REWARDS: Record<number, { type: 'equipment'|'pet'|'region_unl
   40: [{ type: 'pet',       id: 'robot_dog',           label: 'Robot Dog Pet' },
        { type: 'region_unlock', id: 'shadow_lair',     label: "Shadow Mathematician's Lair" }],
 }
+
+// ─────────────────────────────────────────────────────────────
+// CRYSTAL SHOP ITEMS (2D-7) — added to EQUIPMENT_DATA via spread
+// ─────────────────────────────────────────────────────────────
+// These are appended at runtime; defined here for clarity.
+// crystal_blade and mana_shield are crystal-exclusive equipment.
+
+// ─────────────────────────────────────────────────────────────
+// SKINS DATA (2D-8)
+// ─────────────────────────────────────────────────────────────
+
+export const SKINS_DATA: Skin[] = [
+  { id: 'wizard',    emoji: '🧙', name: 'Wizard',       unlockMethod: 'default' },
+  { id: 'knight',    emoji: '🧝', name: 'Elf Knight',   unlockMethod: 'level',         requiredLevel: 10 },
+  { id: 'warrior',   emoji: '🦸', name: 'Hero',         unlockMethod: 'level',         requiredLevel: 20 },
+  { id: 'ninja',     emoji: '🥷', name: 'Ninja',         unlockMethod: 'crystal_shop',  crystalPrice: 3 },
+  { id: 'robot',     emoji: '🤖', name: 'Robot',         unlockMethod: 'crystal_shop',  crystalPrice: 5 },
+  { id: 'dragon',    emoji: '🐲', name: 'Dragon Lord',  unlockMethod: 'crystal_shop',  crystalPrice: 10 },
+  { id: 'alien',     emoji: '👾', name: 'Alien',         unlockMethod: 'daily_reward' },
+]

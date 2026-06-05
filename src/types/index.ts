@@ -56,6 +56,8 @@ export interface Player {
   ownedEquipment: string[]
   ownedPets: string[]
   battleRecords: Record<string, BattleRecord>
+  seenRegions: string[]   // 2D-6: regions player has tapped into (clears New! badge)
+  activeSkin: string       // 2D-8: active avatar emoji skin
 }
 
 export interface EquippedItems {
@@ -157,7 +159,7 @@ export interface QuestionResult {
 }
 
 export type EquipmentSlot = 'weapon'|'armour'|'accessory'|'hat'
-export type Rarity = 'common'|'uncommon'|'rare'|'legendary'
+export type Rarity = 'common'|'uncommon'|'rare'|'legendary'|'epic'
 
 export interface Equipment {
   id: string
@@ -170,7 +172,8 @@ export interface Equipment {
   stats: EquipmentStats
   upgradeLevel: number
   shopPrice: number|null
-  obtainMethod: 'level_reward'|'shop'|'boss_drop'|'daily_reward'
+  crystalPrice?: number            // 2D-7: crystal shop price
+  obtainMethod: 'level_reward'|'shop'|'boss_drop'|'daily_reward'|'crystal_shop'
   requiredLevel: number
 }
 
@@ -284,4 +287,14 @@ export interface NavigationState {
   screen: AppScreen
   regionId?: RegionId
   battleId?: string
+}
+
+// ─── Skin System (2D-8) ─────────────────────────────────────
+export interface Skin {
+  id: string
+  emoji: string
+  name: string
+  unlockMethod: 'default'|'level'|'crystal_shop'|'daily_reward'
+  requiredLevel?: number
+  crystalPrice?: number
 }

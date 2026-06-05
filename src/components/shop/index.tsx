@@ -1,34 +1,85 @@
 import React, { useState } from 'react'
 import { useGameStore } from '../../store/gameStore'
-import { EQUIPMENT_DATA } from '../../data/gameData'
+import { EQUIPMENT_DATA, SKINS_DATA } from '../../data/gameData'
+
+type ShopTab = 'gold' | 'crystal' | 'skins'
 
 export const ShopScreen: React.FC = () => {
-  const player      = useGameStore(s => s.player)
-  const navigate    = useGameStore(s => s.navigate)
-  const buyEquipment = useGameStore(s => s.buyEquipment)
-  const [confirm, setConfirm]   = useState<string | null>(null)
-  const [message, setMessage]   = useState<string | null>(null)
+  const player          = useGameStore(s => s.player)
+  const navigate        = useGameStore(s => s.navigate)
+  const buyEquipment    = useGameStore(s => s.buyEquipment)
+  const buyCrystalItem  = useGameStore(s => s.buyCrystalItem)
+  const buySkin         = useGameStore(s => s.buySkin)
+  const equipSkin       = useGameStore(s => s.equipSkin)
+  const [tab, setTab]         = useState<ShopTab>('gold')
+  const [confirm, setConfirm] = useState<string | null>(null)
+  const [message, setMessage] = useState<string | null>(null)
   if (!player) return null
 
-  const forSale = EQUIPMENT_DATA.filter(e =>
-    e.shopPrice !== null && e.requiredLevel <= player.level
-  )
+  const goldItems    = EQUIPMENT_DATA.filter(e => e.shopPrice !== null && e.requiredLevel <= player.level)
+  const crystalItems = EQUIPMENT_DATA.filter(e => e.crystalPrice != null && e.requiredLevel <= player.level)
+
+  const showMsg = (m: string) => { setMessage(m); setTimeout(() => setMessage(null), 2000) }
 
   const handleBuy = (itemId: string) => {
     const success = buyEquipment(itemId)
     setConfirm(null)
-    setMessage(success ? '✓ Purchased!' : '✗ Not enough gold!')
-    setTimeout(() => setMessage(null), 2000)
+    showMsg(success ? '✓ Purchased!' : '✗ Not enough gold!')
   }
+  const handleCrystalBuy = (itemId: string) => {
+    const success = buyCrystalItem(itemId)
+    setConfirm(null)
+    showMsg(success ? '✓ Crystal item acquired!' : '✗ Not enough crystals!')
+  }
+  const handleSkinBuy = (skinId: string) => {
+    const skin = SKINS_DATA.find(s => s.id === skinId)
+    if (!skin) return
+    if (skin.unlockMethod === 'crystal_shop') {
+      const success = buySkin(skinId)
+      if (success) { equipSkin(skinId); showMsg('✓ Skin unlocked & equipped!') }
+      else showMsg('✗ Not enough crystals!')
+    } else {
+      equipSkin(skinId)
+      showMsg('✓ Skin equipped!')
+    }
+  }
+
+  const tabs: { id: ShopTab; label: string; icon: string }[] = [
+    { id: 'gold',    label: 'Gold',    icon: '🪙' },
+    { id: 'crystal', label: 'Crystal', icon: '💎' },
+    { id: 'skins',   label: 'Skins',   icon: '🎭' },
+  ]
 
   return (
     <div className="h-full flex flex-col" style={{ background: '#FFF8F0' }}>
-      <div className="px-4 pt-5 pb-4 flex items-center gap-3" style={{ background: '#2D1B69' }}>
-        <button onClick={() => navigate('main_menu')} className="text-2xl text-white">←</button>
-        <h1 className="font-fredoka text-xl text-white flex-1">🛒 Shop</h1>
-        <div className="flex items-center gap-1 rounded-full px-3 py-1.5" style={{ background: '#FFE66D' }}>
-          <span className="text-sm">🪙</span>
-          <span className="font-nunito font-bold text-sm" style={{ color: '#5a3e00' }}>{player.gold}</span>
+      {/* Header */}
+      <div className="px-4 pt-5 pb-3" style={{ background: '#2D1B69' }}>
+        <div className="flex items-center gap-3 mb-3">
+          <button onClick={() => navigate('main_menu')} className="text-2xl text-white">←</button>
+          <h1 className="font-fredoka text-xl text-white flex-1">🛒 Shop</h1>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 rounded-full px-2.5 py-1" style={{ background: '#FFE66D' }}>
+              <span className="text-xs">🪙</span>
+              <span className="font-nunito font-bold text-xs" style={{ color: '#5a3e00' }}>{player.gold}</span>
+            </div>
+            <div className="flex items-center gap-1 rounded-full px-2.5 py-1" style={{ background: 'rgba(78,205,196,0.25)', border: '1px solid #4ECDC4' }}>
+              <span className="text-xs">💎</span>
+              <span className="font-nunito font-bold text-xs" style={{ color: '#4ECDC4' }}>{player.crystals}</span>
+            </div>
+          </div>
+        </div>
+        {/* Tabs */}
+        <div className="flex gap-2">
+          {tabs.map(t => (
+            <button key={t.id} onClick={() => setTab(t.id)}
+              className="flex-1 py-1.5 rounded-xl font-fredoka text-sm transition-all"
+              style={{
+                background: tab === t.id ? '#FF6B35' : 'rgba(255,255,255,0.1)',
+                color: tab === t.id ? 'white' : 'rgba(255,255,255,0.6)',
+              }}>
+              {t.icon} {t.label}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -41,45 +92,136 @@ export const ShopScreen: React.FC = () => {
       )}
 
       <div className="flex-1 scroll-y px-4 py-4">
-        <p className="font-nunito text-xs mb-3" style={{ color: '#aaa' }}>
-          Equipment available for your level ({player.level}):
-        </p>
-        <div className="flex flex-col gap-3">
-          {forSale.map(item => {
-            const owned     = player.ownedEquipment.includes(item.id)
-            const canAfford = player.gold >= (item.shopPrice ?? 0)
-            return (
-              <div key={item.id} className="rounded-2xl p-4 bg-white flex items-center gap-4"
-                style={{ border: '1px solid rgba(45,27,105,0.08)', opacity: owned ? 0.6 : 1 }}>
-                <span className="text-4xl">{item.emoji}</span>
-                <div className="flex-1">
-                  <div className="font-fredoka text-base" style={{ color: '#2D1B69' }}>{item.name}</div>
-                  <div className="font-nunito text-xs mt-0.5" style={{ color: '#888' }}>{item.description}</div>
-                  <div className="font-nunito text-xs mt-1" style={{ color: '#666' }}>
-                    {Object.entries(item.stats).filter(([,v])=>v).map(([k,v])=>`+${v} ${k.replace(/([A-Z])/g,' $1').toLowerCase()}`).join(' · ')}
+
+        {/* ── Gold Shop ── */}
+        {tab === 'gold' && (
+          <div className="flex flex-col gap-3">
+            <p className="font-nunito text-xs mb-1" style={{ color: '#aaa' }}>
+              Equipment for Level {player.level}:
+            </p>
+            {goldItems.map(item => {
+              const owned     = player.ownedEquipment.includes(item.id)
+              const canAfford = player.gold >= (item.shopPrice ?? 0)
+              return (
+                <div key={item.id} className="rounded-2xl p-4 bg-white flex items-center gap-4"
+                  style={{ border: '1px solid rgba(45,27,105,0.08)', opacity: owned ? 0.6 : 1 }}>
+                  <span className="text-4xl">{item.emoji}</span>
+                  <div className="flex-1">
+                    <div className="font-fredoka text-base" style={{ color: '#2D1B69' }}>{item.name}</div>
+                    <div className="font-nunito text-xs mt-0.5" style={{ color: '#888' }}>{item.description}</div>
+                    <div className="font-nunito text-xs mt-1" style={{ color: '#666' }}>
+                      {Object.entries(item.stats).filter(([,v])=>v).map(([k,v])=>`+${v} ${k.replace(/([A-Z])/g,' $1').toLowerCase()}`).join(' · ')}
+                    </div>
                   </div>
+                  {owned ? (
+                    <span className="font-nunito text-xs font-bold" style={{ color: '#6BCB77' }}>Owned ✓</span>
+                  ) : (
+                    <button onClick={() => setConfirm(`gold:${item.id}`)}
+                      disabled={!canAfford}
+                      className="flex flex-col items-center px-3 py-2 rounded-xl active:scale-95 transition-transform disabled:opacity-40"
+                      style={{ background: canAfford ? '#FF6B35' : '#ddd', color: canAfford ? 'white' : '#888' }}>
+                      <span className="font-fredoka text-sm">Buy</span>
+                      <span className="font-nunito text-xs">🪙{item.shopPrice}</span>
+                    </button>
+                  )}
                 </div>
-                {owned ? (
-                  <span className="font-nunito text-xs font-bold" style={{ color: '#6BCB77' }}>Owned ✓</span>
-                ) : (
-                  <button onClick={() => setConfirm(item.id)}
-                    disabled={!canAfford}
-                    className="flex flex-col items-center px-3 py-2 rounded-xl active:scale-95 transition-transform disabled:opacity-40"
-                    style={{ background: canAfford ? '#FF6B35' : '#ddd', color: canAfford ? 'white' : '#888' }}>
-                    <span className="font-fredoka text-sm">Buy</span>
-                    <span className="font-nunito text-xs">🪙{item.shopPrice}</span>
+              )
+            })}
+          </div>
+        )}
+
+        {/* ── Crystal Shop ── */}
+        {tab === 'crystal' && (
+          <div className="flex flex-col gap-3">
+            <div className="rounded-xl p-3 mb-1" style={{ background: 'rgba(78,205,196,0.1)', border: '1px solid rgba(78,205,196,0.3)' }}>
+              <p className="font-nunito text-xs text-center" style={{ color: '#4ECDC4' }}>
+                💎 Crystals are rare drops from bosses. Spend them on exclusive gear!
+              </p>
+            </div>
+            {crystalItems.map(item => {
+              const owned     = player.ownedEquipment.includes(item.id)
+              const canAfford = player.crystals >= (item.crystalPrice ?? 99)
+              return (
+                <div key={item.id} className="rounded-2xl p-4 flex items-center gap-4"
+                  style={{ background: owned ? 'rgba(107,203,119,0.08)' : 'white',
+                           border: `1px solid ${owned ? 'rgba(107,203,119,0.3)' : 'rgba(78,205,196,0.2)'}`,
+                           opacity: owned ? 0.7 : 1 }}>
+                  <span className="text-4xl">{item.emoji}</span>
+                  <div className="flex-1">
+                    <div className="font-fredoka text-base" style={{ color: '#2D1B69' }}>{item.name}</div>
+                    <div className="font-nunito text-xs mt-0.5" style={{ color: '#888' }}>{item.description}</div>
+                    <div className="font-nunito text-xs mt-1 font-bold" style={{ color: '#4ECDC4' }}>
+                      {Object.entries(item.stats).filter(([,v])=>v).map(([k,v])=>`+${v} ${k.replace(/([A-Z])/g,' $1').toLowerCase()}`).join(' · ')}
+                    </div>
+                  </div>
+                  {owned ? (
+                    <span className="font-nunito text-xs font-bold" style={{ color: '#6BCB77' }}>Owned ✓</span>
+                  ) : (
+                    <button onClick={() => setConfirm(`crystal:${item.id}`)}
+                      disabled={!canAfford}
+                      className="flex flex-col items-center px-3 py-2 rounded-xl active:scale-95 transition-transform disabled:opacity-40"
+                      style={{ background: canAfford ? '#4ECDC4' : '#ddd', color: canAfford ? 'white' : '#888' }}>
+                      <span className="font-fredoka text-sm">Buy</span>
+                      <span className="font-nunito text-xs">💎{item.crystalPrice}</span>
+                    </button>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {/* ── Skin Wardrobe ── */}
+        {tab === 'skins' && (
+          <div className="flex flex-col gap-3">
+            <p className="font-nunito text-xs mb-1" style={{ color: '#aaa' }}>
+              Choose your avatar skin — some need crystals or levels to unlock.
+            </p>
+            <div className="grid grid-cols-3 gap-3">
+              {SKINS_DATA.map(skin => {
+                const isEquipped = (player.activeSkin ?? '🧙') === skin.emoji
+                const isLevelLocked = skin.unlockMethod === 'level' && (skin.requiredLevel ?? 0) > player.level
+                const isCrystalShop = skin.unlockMethod === 'crystal_shop'
+                const canAfford = isCrystalShop ? player.crystals >= (skin.crystalPrice ?? 99) : true
+                const isDefault = skin.unlockMethod === 'default'
+                const isLevelUnlocked = skin.unlockMethod === 'level' && (skin.requiredLevel ?? 0) <= player.level
+
+                return (
+                  <button key={skin.id}
+                    onClick={() => !isLevelLocked && handleSkinBuy(skin.id)}
+                    disabled={isLevelLocked}
+                    className="rounded-2xl p-3 flex flex-col items-center gap-1 active:scale-95 transition-all disabled:opacity-40"
+                    style={{
+                      background: isEquipped ? 'rgba(255,107,53,0.15)' : 'white',
+                      border: `1.5px solid ${isEquipped ? '#FF6B35' : 'rgba(45,27,105,0.1)'}`,
+                    }}>
+                    <span className="text-4xl">{skin.emoji}</span>
+                    <span className="font-fredoka text-xs text-center" style={{ color: '#2D1B69' }}>{skin.name}</span>
+                    {isEquipped && <span className="font-nunito text-xs" style={{ color: '#FF6B35' }}>Equipped</span>}
+                    {!isEquipped && isDefault && <span className="font-nunito text-xs" style={{ color: '#6BCB77' }}>Free</span>}
+                    {!isEquipped && isLevelUnlocked && <span className="font-nunito text-xs" style={{ color: '#6BCB77' }}>Tap to wear</span>}
+                    {!isEquipped && isCrystalShop && (
+                      <span className="font-nunito text-xs font-bold" style={{ color: canAfford ? '#4ECDC4' : '#aaa' }}>
+                        💎{skin.crystalPrice}
+                      </span>
+                    )}
+                    {isLevelLocked && (
+                      <span className="font-nunito text-xs" style={{ color: '#aaa' }}>Lv.{skin.requiredLevel}</span>
+                    )}
                   </button>
-                )}
-              </div>
-            )
-          })}
-        </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Confirm modal */}
+      {/* Confirm modals */}
       {confirm && (() => {
-        const item = EQUIPMENT_DATA.find(e => e.id === confirm)
+        const [type, itemId] = confirm.split(':')
+        const item = EQUIPMENT_DATA.find(e => e.id === itemId)
         if (!item) return null
+        const isCrystal = type === 'crystal'
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center px-6"
             style={{ background: 'rgba(0,0,0,0.6)' }}>
@@ -87,7 +229,7 @@ export const ShopScreen: React.FC = () => {
               <div className="text-4xl mb-2">{item.emoji}</div>
               <h3 className="font-fredoka text-xl mb-1" style={{ color: '#2D1B69' }}>{item.name}</h3>
               <p className="font-nunito text-sm mb-4" style={{ color: '#666' }}>
-                Buy for <strong>🪙{item.shopPrice}</strong> gold?
+                Buy for {isCrystal ? `💎${item.crystalPrice} crystals` : `🪙${item.shopPrice} gold`}?
               </p>
               <div className="flex gap-3">
                 <button onClick={() => setConfirm(null)}
@@ -95,10 +237,10 @@ export const ShopScreen: React.FC = () => {
                   style={{ background: 'rgba(0,0,0,0.08)', color: '#666' }}>
                   Cancel
                 </button>
-                <button onClick={() => handleBuy(confirm)}
+                <button onClick={() => isCrystal ? handleCrystalBuy(itemId) : handleBuy(itemId)}
                   className="flex-1 py-3 rounded-2xl font-fredoka text-base text-white active:scale-95"
-                  style={{ background: '#FF6B35' }}>
-                  Buy! 🪙
+                  style={{ background: isCrystal ? '#4ECDC4' : '#FF6B35' }}>
+                  Buy! {isCrystal ? '💎' : '🪙'}
                 </button>
               </div>
             </div>

@@ -1232,6 +1232,196 @@ export function generateWorded3Step(diff: DifficultyLevel): Question {
 // MASTER GENERATOR
 // ─────────────────────────────────────────────
 
+// ─────────────────────────────────────────────
+export function generateQuadratics(diff: DifficultyLevel): Question {
+  if (diff === 'bronze') {
+    // Simple: x² + bx = 0 → x(x + b) = 0 → roots: 0 and -b
+    const b = rand(2, 9)
+    const root1 = 0, root2 = -b
+    const correct = `x = 0 or x = ${root2}`
+    const { answers, correctIndex } = buildMCQ(correct, [
+      `x = 0 or x = ${b}`,
+      `x = ${b} or x = ${-b}`,
+      `x = ${root2} only`,
+    ])
+    return {
+      id: qid(), tier: 'Y9', type: 'quadratics', difficulty: diff,
+      questionText: `Solve: x² + ${b}x = 0`,
+      answers, correctIndex,
+      explanation: `Factorise: x(x + ${b}) = 0 → x = 0 or x = ${root2}`,
+      timeLimitSeconds: 40,
+    }
+  }
+
+  if (diff === 'silver') {
+    // x² + (a+b)x + ab = 0 → (x+a)(x+b) = 0 → roots -a, -b
+    const a = rand(1, 7), b = rand(1, 7)
+    const sumAB = a + b, prodAB = a * b
+    const r1 = -a, r2 = -b
+    const correct = r1 === r2 ? `x = ${r1}` : `x = ${r1} or x = ${r2}`
+    const wrong1 = `x = ${a} or x = ${b}`
+    const wrong2 = `x = ${r1} or x = ${a}`
+    const wrong3 = `x = ${r2} only`
+    const { answers, correctIndex } = buildMCQ(correct, [wrong1, wrong2, wrong3])
+    return {
+      id: qid(), tier: 'Y9', type: 'quadratics', difficulty: diff,
+      questionText: `Factorise and solve: x² + ${sumAB}x + ${prodAB} = 0`,
+      answers, correctIndex,
+      explanation: `(x + ${a})(x + ${b}) = 0 → x = ${r1} or x = ${r2}`,
+      timeLimitSeconds: 45,
+    }
+  }
+
+  // Gold: x² + (a-b)x - ab = 0 → (x+a)(x-b) with one positive, one negative root
+  const a = rand(2, 8), b = rand(2, 8)
+  const coefX = a - b, coefC = -(a * b)
+  const r1 = -a, r2 = b
+  const correct = r1 < r2 ? `x = ${r1} or x = ${r2}` : `x = ${r2} or x = ${r1}`
+  const sign = coefX >= 0 ? `+${coefX}` : `${coefX}`
+  const cSign = coefC >= 0 ? `+${coefC}` : `${coefC}`
+  const { answers, correctIndex } = buildMCQ(correct, [
+    `x = ${a} or x = ${-b}`,
+    `x = ${-r1} or x = ${-r2}`,
+    `x = ${r1} only`,
+  ])
+  return {
+    id: qid(), tier: 'Y10', type: 'quadratics', difficulty: diff,
+    questionText: `Solve: x²${sign}x${cSign} = 0`,
+    answers, correctIndex,
+    explanation: `Factorise: (x + ${a})(x − ${b}) = 0 → x = ${r1} or x = ${r2}`,
+    timeLimitSeconds: 50,
+  }
+}
+
+// ─────────────────────────────────────────────
+// TRIGONOMETRY — SOH CAH TOA (Phase 2D)
+// ─────────────────────────────────────────────
+export function generateTrigonometry(diff: DifficultyLevel): Question {
+  const roundTo1 = (n: number) => Math.round(n * 10) / 10
+
+  if (diff === 'bronze') {
+    // Find opposite: sin(angle) = opp/hyp → opp = hyp × sin(angle)
+    const angles = [30, 45, 60]
+    const sinVals: Record<number, string> = { 30: '0.5', 45: '0.707', 60: '0.866' }
+    const angle = angles[rand(0, 2)]
+    const hyp = rand(4, 12) * 2
+    const opp = roundTo1(hyp * parseFloat(sinVals[angle]))
+    const correct = String(opp)
+    const { answers, correctIndex } = buildMCQ(correct, [
+      String(roundTo1(opp + 1.5)), String(roundTo1(opp - 1)), String(roundTo1(hyp / 2)),
+    ])
+    return {
+      id: qid(), tier: 'Y9', type: 'trigonometry', difficulty: diff,
+      questionText: `In a right-angled triangle, hypotenuse = ${hyp}cm, angle = ${angle}°. Find the opposite side (1 d.p.). sin${angle}° = ${sinVals[angle]}`,
+      answers, correctIndex,
+      explanation: `sin(${angle}°) = opp/hyp → opp = ${hyp} × ${sinVals[angle]} = ${correct}cm`,
+      timeLimitSeconds: 45,
+    }
+  }
+
+  if (diff === 'silver') {
+    // Find adjacent: cos(angle) = adj/hyp → adj = hyp × cos(angle)
+    const angles = [30, 45, 60]
+    const cosVals: Record<number, string> = { 30: '0.866', 45: '0.707', 60: '0.5' }
+    const angle = angles[rand(0, 2)]
+    const hyp = rand(5, 15)
+    const adj = roundTo1(hyp * parseFloat(cosVals[angle]))
+    const correct = String(adj)
+    const { answers, correctIndex } = buildMCQ(correct, [
+      String(roundTo1(adj + 2)), String(roundTo1(adj - 1.5)), String(roundTo1(hyp * 0.5)),
+    ])
+    return {
+      id: qid(), tier: 'Y9', type: 'trigonometry', difficulty: diff,
+      questionText: `Right-angled triangle: hypotenuse = ${hyp}cm, angle = ${angle}°. Find the adjacent side (1 d.p.). cos${angle}° = ${cosVals[angle]}`,
+      answers, correctIndex,
+      explanation: `cos(${angle}°) = adj/hyp → adj = ${hyp} × ${cosVals[angle]} = ${correct}cm`,
+      timeLimitSeconds: 45,
+    }
+  }
+
+  // Gold: find the hypotenuse using tan and Pythagoras, or find angle via tan
+  const opp = rand(3, 10), adj = rand(3, 10)
+  const tanVal = roundTo1(opp / adj)
+  const hyp = roundTo1(Math.sqrt(opp * opp + adj * adj))
+  const correct = String(hyp)
+  const { answers, correctIndex } = buildMCQ(correct, [
+    String(roundTo1(hyp + 1.5)), String(roundTo1(opp + adj)), String(roundTo1(hyp - 1)),
+  ])
+  return {
+    id: qid(), tier: 'Y10', type: 'trigonometry', difficulty: diff,
+    questionText: `Right-angled triangle: opposite = ${opp}cm, adjacent = ${adj}cm. Find the hypotenuse (1 d.p.).`,
+    answers, correctIndex,
+    explanation: `tan = ${opp}/${adj} = ${tanVal}. hyp² = ${opp}² + ${adj}² = ${opp*opp + adj*adj}, so hyp = √${opp*opp + adj*adj} ≈ ${correct}cm`,
+    timeLimitSeconds: 50,
+  }
+}
+
+// ─────────────────────────────────────────────
+// SIMULTANEOUS EQUATIONS (Phase 2D)
+// ─────────────────────────────────────────────
+export function generateSimultaneous(diff: DifficultyLevel): Question {
+  if (diff === 'bronze') {
+    // Simple: same coefficient — e.g. x + y = S, x - y = D
+    const x = rand(2, 9), y = rand(2, 9)
+    const sum = x + y, diff2 = x - y
+    const correct = `x = ${x}, y = ${y}`
+    const { answers, correctIndex } = buildMCQ(correct, [
+      `x = ${y}, y = ${x}`,
+      `x = ${x + 1}, y = ${y - 1}`,
+      `x = ${sum}, y = ${diff2}`,
+    ])
+    return {
+      id: qid(), tier: 'Y8', type: 'simultaneous', difficulty: diff,
+      questionText: `Solve:
+  x + y = ${sum}
+  x − y = ${diff2}`,
+      answers, correctIndex,
+      explanation: `Add the equations: 2x = ${sum + diff2} → x = ${x}. Then y = ${sum} − ${x} = ${y}`,
+      timeLimitSeconds: 40,
+    }
+  }
+
+  if (diff === 'silver') {
+    // e.g. 2x + y = A, x + y = B → subtract to get x
+    const x = rand(2, 8), y = rand(2, 8)
+    const A = 2 * x + y, B = x + y
+    const correct = `x = ${x}, y = ${y}`
+    const { answers, correctIndex } = buildMCQ(correct, [
+      `x = ${y}, y = ${x}`,
+      `x = ${x + 1}, y = ${y + 1}`,
+      `x = ${A - B}, y = ${B}`,
+    ])
+    return {
+      id: qid(), tier: 'Y9', type: 'simultaneous', difficulty: diff,
+      questionText: `Solve:
+  2x + y = ${A}
+  x + y = ${B}`,
+      answers, correctIndex,
+      explanation: `Subtract eq2 from eq1: x = ${A} − ${B} = ${x}. Substitute: y = ${B} − ${x} = ${y}`,
+      timeLimitSeconds: 45,
+    }
+  }
+
+  // Gold: 3x + 2y = A, x + y = B — multiply and subtract
+  const x = rand(2, 7), y = rand(2, 7)
+  const A = 3 * x + 2 * y, B = x + y
+  const correct = `x = ${x}, y = ${y}`
+  const { answers, correctIndex } = buildMCQ(correct, [
+    `x = ${y}, y = ${x}`,
+    `x = ${x + 1}, y = ${y - 1}`,
+    `x = ${A - 2 * B}, y = ${3 * B - A}`,
+  ])
+  return {
+    id: qid(), tier: 'Y9', type: 'simultaneous', difficulty: diff,
+    questionText: `Solve:
+  3x + 2y = ${A}
+  x + y = ${B}`,
+    answers, correctIndex,
+    explanation: `Multiply eq2 by 2: 2x + 2y = ${2*B}. Subtract from eq1: x = ${A} − ${2*B} = ${x}. Then y = ${B} − ${x} = ${y}`,
+    timeLimitSeconds: 50,
+  }
+}
+
 const GENERATORS: Record<QuestionType, (d: DifficultyLevel) => Question> = {
   addition:          generateAddition,
   subtraction:       generateSubtraction,
@@ -1255,11 +1445,12 @@ const GENERATORS: Record<QuestionType, (d: DifficultyLevel) => Question> = {
   coordinates:       generateCoordinates,
   probability:       generateProbability,
   worded_3step:      generateWorded3Step,
-  // Phase 2C stubs
-  quadratics:        generateAlgebra,
-  trigonometry:      generateGeometryArea,
-  simultaneous:      generateAlgebra,
+  // Phase 2D — real implementations
+  quadratics:        generateQuadratics,
+  trigonometry:      generateTrigonometry,
+  simultaneous:      generateSimultaneous,
 }
+
 
 export function generateQuestion(
   type: QuestionType,

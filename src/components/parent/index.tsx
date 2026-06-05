@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { APP_FULL } from '../../version'
 import { useGameStore } from '../../store/gameStore'
 
 type Tab = 'overview' | 'topics' | 'settings'
@@ -300,6 +301,10 @@ export const ParentDashboard: React.FC = () => {
             </button>
           </div>
         )}
+        {/* Version */}
+        <div className="mt-4 pb-4 text-center font-nunito text-xs" style={{color:"rgba(45,27,105,0.4)"}}>
+          {APP_FULL}
+        </div>
       </div>
     </div>
   )
