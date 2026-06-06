@@ -808,7 +808,7 @@ export const useGameStore = create<GameStore>()(
         if (!player.ownedEquipment.includes(itemId)) return false
         const item = EQUIPMENT_DATA.find(e => e.id === itemId)
         if (!item) return false
-        const currentLevel = item.upgradeLevel  // base item; in practice upgradeLevel is stored on item data
+        //const currentLevel = item.upgradeLevel  // base item; in practice upgradeLevel is stored on item data
         // Track upgrade levels separately on player (using a map)
         const upgrades = (player as any).itemUpgrades as Record<string,number> ?? {}
         const curUpgrade = upgrades[itemId] ?? 0
