@@ -55,9 +55,10 @@ export interface Player {
   completedBattles: string[]
   ownedEquipment: string[]
   ownedPets: string[]
+  ownedSkins: string[]        // 2E-13: owned skin ids (default: ['wizard'])
   battleRecords: Record<string, BattleRecord>
-  seenRegions: string[]   // 2D-6: regions player has tapped into (clears New! badge)
-  activeSkin: string       // 2D-8: active avatar emoji skin
+  seenRegions: string[]
+  activeSkin: string           // emoji string e.g. '🧙'
 }
 
 export interface EquippedItems {
@@ -111,6 +112,7 @@ export interface Monster {
   goldRewardMin: number
   goldRewardMax: number
   dropTable: DropEntry[]
+  isBoss: boolean             // 2E-12
   specialAbility?: MonsterSpecialAbility
 }
 
@@ -145,7 +147,9 @@ export interface BattleState {
   status: 'idle'|'question'|'feedback_correct'|'feedback_wrong'|'victory'|'defeat'
   lastAnswerCorrect: boolean|null
   timerBonus: number
-  drops: string[]   // item/pet IDs received on victory
+  drops: string[]
+  phoenixUsed: boolean        // 2E-3
+  timerReduction: number      // 2E-6
 }
 
 export interface QuestionResult {
@@ -160,6 +164,7 @@ export interface QuestionResult {
 
 export type EquipmentSlot = 'weapon'|'armour'|'accessory'|'hat'
 export type Rarity = 'common'|'uncommon'|'rare'|'legendary'|'epic'
+export type EquipmentTier = 'common'|'rare'|'epic'    // 2E-2
 
 export interface Equipment {
   id: string
@@ -167,12 +172,13 @@ export interface Equipment {
   emoji: string
   slot: EquipmentSlot
   rarity: Rarity
+  tier: EquipmentTier         // 2E-2
   description: string
   loreText: string
   stats: EquipmentStats
   upgradeLevel: number
   shopPrice: number|null
-  crystalPrice?: number            // 2D-7: crystal shop price
+  crystalPrice?: number
   obtainMethod: 'level_reward'|'shop'|'boss_drop'|'daily_reward'|'crystal_shop'
   requiredLevel: number
 }
@@ -187,7 +193,10 @@ export interface EquipmentStats {
   comboMultiplierBonus?: number
 }
 
-export type PetEffectType = 'hint_on_wrong'|'exp_boost'|'absorb_wrong'|'fifty_fifty'|'gold_boost'
+export type PetEffectType =
+  |'hint_on_wrong'|'exp_boost'|'absorb_wrong'|'fifty_fifty'|'gold_boost'
+  |'timer_bonus'|'perfect_gold_double'|'revive'|'first_answer_correct'
+  |'attack_bonus_pct'|'heal_on_correct'    // 2E-3 new pet effects
 
 export interface Pet {
   id: string
@@ -289,11 +298,13 @@ export interface NavigationState {
   battleId?: string
 }
 
-// ─── Skin System (2D-8) ─────────────────────────────────────
+// ─── Skin System (2D-8, extended 2E-4) ──────────────────────
 export interface Skin {
   id: string
   emoji: string
   name: string
+  glowColor: string    // 2E-4
+  bgColor: string      // 2E-4
   unlockMethod: 'default'|'level'|'crystal_shop'|'daily_reward'
   requiredLevel?: number
   crystalPrice?: number

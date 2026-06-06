@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { useGameStore } from '../../store/gameStore'
 import { EQUIPMENT_DATA, SKINS_DATA } from '../../data/gameData'
+import { sfx } from '../../engine/audioEngine'
 
 type ShopTab = 'gold' | 'crystal' | 'skins'
 
@@ -29,15 +30,26 @@ export const ShopScreen: React.FC = () => {
   const handleCrystalBuy = (itemId: string) => {
     const success = buyCrystalItem(itemId)
     setConfirm(null)
-    showMsg(success ? '✓ Crystal item acquired!' : '✗ Not enough crystals!')
+    if (success) { sfx.crystal(); showMsg('✓ Crystal item acquired!') }  // 2E-9
+    else showMsg('✗ Not enough crystals!')
   }
   const handleSkinBuy = (skinId: string) => {
     const skin = SKINS_DATA.find(s => s.id === skinId)
     if (!skin) return
+    const ownedSkins = player.ownedSkins ?? ['wizard']
+    if (ownedSkins.includes(skinId)) {
+      // Already owned — just equip
+      equipSkin(skinId)
+      showMsg('✓ Skin equipped!')
+      return
+    }
     if (skin.unlockMethod === 'crystal_shop') {
       const success = buySkin(skinId)
-      if (success) { equipSkin(skinId); showMsg('✓ Skin unlocked & equipped!') }
+      if (success) { sfx.crystal(); equipSkin(skinId); showMsg('✓ Skin unlocked & equipped!') }
       else showMsg('✗ Not enough crystals!')
+    } else if (skin.unlockMethod === 'level') {
+      const success = buySkin(skinId)
+      if (success) { equipSkin(skinId); showMsg('✓ Skin equipped!') }
     } else {
       equipSkin(skinId)
       showMsg('✓ Skin equipped!')
@@ -179,34 +191,50 @@ export const ShopScreen: React.FC = () => {
             </p>
             <div className="grid grid-cols-3 gap-3">
               {SKINS_DATA.map(skin => {
+                const ownedSkins = player.ownedSkins ?? ['wizard']
+                const isOwned    = ownedSkins.includes(skin.id)
                 const isEquipped = (player.activeSkin ?? '🧙') === skin.emoji
                 const isLevelLocked = skin.unlockMethod === 'level' && (skin.requiredLevel ?? 0) > player.level
+                const isDailyLocked = skin.unlockMethod === 'daily_reward' && !isOwned
                 const isCrystalShop = skin.unlockMethod === 'crystal_shop'
                 const canAfford = isCrystalShop ? player.crystals >= (skin.crystalPrice ?? 99) : true
-                const isDefault = skin.unlockMethod === 'default'
-                const isLevelUnlocked = skin.unlockMethod === 'level' && (skin.requiredLevel ?? 0) <= player.level
-
+                const isLocked  = isLevelLocked || isDailyLocked
                 return (
                   <button key={skin.id}
-                    onClick={() => !isLevelLocked && handleSkinBuy(skin.id)}
-                    disabled={isLevelLocked}
+                    onClick={() => !isLocked && handleSkinBuy(skin.id)}
+                    disabled={isLocked}
                     className="rounded-2xl p-3 flex flex-col items-center gap-1 active:scale-95 transition-all disabled:opacity-40"
                     style={{
-                      background: isEquipped ? 'rgba(255,107,53,0.15)' : 'white',
-                      border: `1.5px solid ${isEquipped ? '#FF6B35' : 'rgba(45,27,105,0.1)'}`,
+                      // 2E-4: use skin's own bgColor when equipped/owned
+                      background: isEquipped ? skin.bgColor : isOwned ? `${skin.bgColor}55` : 'white',
+                      border: `1.5px solid ${isEquipped ? skin.glowColor : isOwned ? `${skin.glowColor}66` : 'rgba(45,27,105,0.1)'}`,
+                      boxShadow: isEquipped ? `0 0 12px ${skin.glowColor}55` : 'none',
                     }}>
-                    <span className="text-4xl">{skin.emoji}</span>
-                    <span className="font-fredoka text-xs text-center" style={{ color: '#2D1B69' }}>{skin.name}</span>
-                    {isEquipped && <span className="font-nunito text-xs" style={{ color: '#FF6B35' }}>Equipped</span>}
-                    {!isEquipped && isDefault && <span className="font-nunito text-xs" style={{ color: '#6BCB77' }}>Free</span>}
-                    {!isEquipped && isLevelUnlocked && <span className="font-nunito text-xs" style={{ color: '#6BCB77' }}>Tap to wear</span>}
-                    {!isEquipped && isCrystalShop && (
+                    {/* 2E-4: avatar circle using skin colours */}
+                    <div className="rounded-full flex items-center justify-center"
+                      style={{
+                        width: 48, height: 48,
+                        background: skin.bgColor,
+                        boxShadow: `0 0 10px ${skin.glowColor}66`,
+                        border: `2px solid ${skin.glowColor}55`,
+                        fontSize: 28,
+                      }}>
+                      {skin.emoji}
+                    </div>
+                    <span className="font-fredoka text-xs text-center" style={{ color: isEquipped || isOwned ? 'white' : '#2D1B69' }}>{skin.name}</span>
+                    {isEquipped && <span className="font-nunito text-xs" style={{ color: skin.glowColor }}>✓ Equipped</span>}
+                    {!isEquipped && isOwned && <span className="font-nunito text-xs" style={{ color: '#6BCB77' }}>Tap to equip</span>}
+                    {!isOwned && skin.unlockMethod === 'default' && <span className="font-nunito text-xs" style={{ color: '#6BCB77' }}>Free</span>}
+                    {!isOwned && isCrystalShop && (
                       <span className="font-nunito text-xs font-bold" style={{ color: canAfford ? '#4ECDC4' : '#aaa' }}>
                         💎{skin.crystalPrice}
                       </span>
                     )}
                     {isLevelLocked && (
                       <span className="font-nunito text-xs" style={{ color: '#aaa' }}>Lv.{skin.requiredLevel}</span>
+                    )}
+                    {isDailyLocked && (
+                      <span className="font-nunito text-xs" style={{ color: '#aaa' }}>7-day streak</span>
                     )}
                   </button>
                 )

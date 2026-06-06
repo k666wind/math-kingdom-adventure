@@ -60,6 +60,26 @@ export const WelcomeScreen: React.FC = () => {
             </div>
           ))}
         </div>
+
+        {/* 2E-10: Crystal slide */}
+        <div className="rounded-2xl p-4 w-full text-center"
+          style={{background:'rgba(78,205,196,0.1)',border:'1px solid rgba(78,205,196,0.3)'}}>
+          <div className="text-3xl mb-1">💎</div>
+          <p className="font-fredoka text-sm text-white mb-0.5">Number Crystals</p>
+          <p className="font-nunito text-xs" style={{color:'rgba(255,255,255,0.6)'}}>
+            Rare crystals drop from bosses. Spend them in the Crystal Shop for exclusive gear!
+          </p>
+        </div>
+
+        {/* 2E-10: Skin slide */}
+        <div className="rounded-2xl p-4 w-full text-center"
+          style={{background:'rgba(255,107,53,0.1)',border:'1px solid rgba(255,107,53,0.3)'}}>
+          <div className="text-3xl mb-1">🎭</div>
+          <p className="font-fredoka text-sm text-white mb-0.5">Change Your Look</p>
+          <p className="font-nunito text-xs" style={{color:'rgba(255,255,255,0.6)'}}>
+            Visit the Skin Wardrobe in the Shop to change your hero's appearance. Unlock new skins as you level up!
+          </p>
+        </div>
       </div>
       <button onClick={() => navigate('onboarding_name')}
         className="w-full text-white font-fredoka text-xl py-4 rounded-2xl active:scale-95 transition-transform"

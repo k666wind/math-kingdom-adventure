@@ -90,8 +90,11 @@ export const ParentDashboard: React.FC = () => {
   const updateParent   = useGameStore(s => s.updateParentSettings)
   const exportSave     = useGameStore(s => s.exportSave)
   const importSave     = useGameStore(s => s.importSave)
+  const setPlayerLevel = useGameStore(s => s.setPlayerLevel)
   const [tab, setTab]  = useState<Tab>('overview')
   const [importMsg, setImportMsg] = useState<string | null>(null)
+  const [devLevel, setDevLevel] = useState<string>("")
+  const [devOpen, setDevOpen] = useState(false)
   if (!player) return null
 
   const topics = Object.values(topicProgress)
@@ -292,6 +295,42 @@ export const ParentDashboard: React.FC = () => {
                 {importMsg}
               </div>
             )}
+
+            {/* ── 2E-1: Dev Tools ── */}
+            <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid rgba(255,150,0,0.3)' }}>
+              <button onClick={() => setDevOpen(!devOpen)}
+                className="w-full py-3 px-4 flex justify-between items-center font-nunito text-sm"
+                style={{ background: 'rgba(255,150,0,0.08)', color: '#b85c00' }}>
+                🛠️ Dev Tools (Testing)
+                <span>{devOpen ? '▲' : '▼'}</span>
+              </button>
+              {devOpen && (
+                <div className="px-4 pb-4 pt-3" style={{ background: 'rgba(255,150,0,0.04)' }}>
+                  <div className="font-nunito text-xs mb-2" style={{ color: '#888' }}>
+                    Current level: <strong>{player.level}</strong>
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      type="number" min="1" max="50"
+                      value={devLevel}
+                      onChange={e => setDevLevel(e.target.value)}
+                      placeholder="1–50"
+                      className="flex-1 rounded-xl px-3 py-2 font-nunito text-sm outline-none"
+                      style={{ border: '1px solid rgba(45,27,105,0.2)', background: 'white' }}
+                    />
+                    <button
+                      onClick={() => {
+                        const lvl = parseInt(devLevel)
+                        if (lvl >= 1 && lvl <= 50) { setPlayerLevel(lvl); setDevLevel('') }
+                      }}
+                      className="px-4 py-2 rounded-xl font-fredoka text-sm text-white active:scale-95"
+                      style={{ background: '#FF6B35' }}>
+                      Set Level
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Reset game */}
             <button onClick={() => { if(window.confirm('Reset ALL game data? This cannot be undone.')) useGameStore.getState().resetGame() }}

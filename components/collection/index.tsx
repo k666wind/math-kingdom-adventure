@@ -27,7 +27,9 @@ export const CollectionEquipment: React.FC = () => {
   const navigate    = useGameStore(s => s.navigate)
   const equipItem   = useGameStore(s => s.equipItem)
   const unequipSlot = useGameStore(s => s.unequipSlot)
+  const upgradeItem = useGameStore(s => s.upgradeItem)   // 2E-7
   const [detail, setDetail] = useState<Equipment | null>(null)
+  const [upgradeMsg, setUpgradeMsg] = useState<string | null>(null)
   if (!player) return null
 
   const owned = EQUIPMENT_DATA.filter(e => player.ownedEquipment.includes(e.id))
@@ -207,6 +209,48 @@ export const CollectionEquipment: React.FC = () => {
                 </button>
               )}
             </div>
+
+            {/* 2E-7: Upgrade UI */}
+            {(() => {
+              const upgrades = (player as any).itemUpgrades as Record<string,number> ?? {}
+              const curUpgrade = upgrades[detail.id] ?? 0
+              const maxed = curUpgrade >= 5
+              const cost = 50 * (curUpgrade + 1)
+              const canAfford = player.gold >= cost
+              return (
+                <div className="mt-3 rounded-xl p-3" style={{ background: 'rgba(255,230,109,0.08)', border: '1px solid rgba(255,230,109,0.3)' }}>
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="font-nunito text-xs font-bold" style={{ color: '#7a5c00' }}>⬆️ Upgrade</span>
+                    <span className="font-fredoka text-sm" style={{ color: '#FFE66D' }}>
+                      {[1,2,3,4,5].map(i => i <= curUpgrade ? '★' : '☆').join('')}
+                    </span>
+                  </div>
+                  {maxed ? (
+                    <p className="font-nunito text-xs text-center" style={{ color: '#6BCB77' }}>✓ Fully Upgraded!</p>
+                  ) : (
+                    <>
+                      <p className="font-nunito text-xs mb-2" style={{ color: '#888' }}>
+                        Cost: 🪙{cost} gold · +2 to all stats per level
+                      </p>
+                      {upgradeMsg && (
+                        <p className="font-nunito text-xs text-center mb-1" style={{ color: upgradeMsg.startsWith('✓') ? '#6BCB77' : '#FF4D6D' }}>{upgradeMsg}</p>
+                      )}
+                      <button
+                        disabled={!canAfford}
+                        onClick={() => {
+                          const ok = upgradeItem(detail.id)
+                          setUpgradeMsg(ok ? `✓ Upgraded to ★${ (upgrades[detail.id] ?? 0) + 1}!` : '✗ Not enough gold')
+                          setTimeout(() => setUpgradeMsg(null), 2000)
+                        }}
+                        className="w-full py-2.5 rounded-xl font-fredoka text-sm active:scale-95 transition-all disabled:opacity-40"
+                        style={{ background: canAfford ? '#FF6B35' : '#ddd', color: canAfford ? 'white' : '#888' }}>
+                        Upgrade 🪙{cost}
+                      </button>
+                    </>
+                  )}
+                </div>
+              )
+            })()}
           </div>
         </div>
       )}

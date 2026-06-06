@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { sfx } from '../../engine/audioEngine'
 import { useGameStore } from '../../store/gameStore'
-import { REGIONS } from '../../data/gameData'
+import { REGIONS, SKINS_DATA } from '../../data/gameData'
 import { APP_VERSION } from '../../version'
 
 export const MainMenu: React.FC = () => {
@@ -14,6 +14,7 @@ export const MainMenu: React.FC = () => {
   if (!player) return null
 
   const expPct = Math.min(100, (player.exp / player.expToNextLevel) * 100)
+  const activeSkin = SKINS_DATA.find(s => s.emoji === player.activeSkin) ?? SKINS_DATA[0]  // 2E-4
   const hasClaimable = dailyChallenges.some(c => c.isCompleted && !c.isClaimed)
 
   const handleQuickBattle = () => {
@@ -42,9 +43,14 @@ export const MainMenu: React.FC = () => {
       {/* Player header */}
       <div className="px-4 pt-5 pb-4" style={{background:'#2D1B69'}}>
         <div className="flex items-center gap-3 mb-3">
+          {/* 2E-4: Skin-styled avatar */}
           <div className="w-12 h-12 rounded-full flex items-center justify-center text-2xl flex-shrink-0"
-            style={{background:'#FF6B35'}}>
-            {player.activeSkin ?? '🧙'}
+            style={{
+              background: activeSkin.bgColor,
+              boxShadow: `0 0 12px ${activeSkin.glowColor}66`,
+              border: `2px solid ${activeSkin.glowColor}44`,
+            }}>
+            {activeSkin.emoji}
           </div>
           <div className="flex-1 min-w-0">
             <div className="font-fredoka text-white text-base">{player.name}</div>
