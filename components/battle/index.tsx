@@ -270,7 +270,8 @@ export const BattleScreen: React.FC = () => {
   if (battlePhase === 'intro') {
     return (
       <div className="h-full flex items-center justify-center"
-        style={{ background: 'linear-gradient(180deg,#1a0e3a,#2D1B69)' }}>
+        onClick={() => setBattlePhase('fighting')}
+        style={{ background: 'linear-gradient(180deg,#1a0e3a,#2D1B69)', cursor: 'pointer' }}>
         <div className="flex items-center gap-6">
           <div className="text-6xl" style={{ animation: 'slideInLeft 0.5s ease-out both' }}>
             {activeSkin.emoji}

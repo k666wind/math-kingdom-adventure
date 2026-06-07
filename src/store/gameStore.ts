@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
+import { updateAccountMeta } from './accountManager'
 import type {
   Player, BattleState, NavigationState, AppScreen,
   TopicProgress, RegionId, DifficultyLevel,
@@ -55,6 +56,8 @@ const defaultParentSettings = (): ParentSettings => ({
   dailyTimeLimitMinutes: null,
   dailyQuestionGoal: null,
   timerMode: 'normal',
+  timerAdjustSeconds: 0,  // 2H-E
+  skipBattleIntro: false,  // 2H-9
   lastUpdated: new Date().toISOString(),
   soundSettings: {
     sfxVolume: 0.8,
@@ -385,7 +388,10 @@ export const useGameStore = create<GameStore>()(
           ? tp.consecutiveCorrect >= 6 ? 'gold' : tp.consecutiveCorrect >= 3 ? 'silver' : 'bronze'
           : 'bronze'
         const question = generateQuestion(qType, diff)
-        const speedBonus = parentSettings.timerMode === 'relaxed' ? 5 : parentSettings.timerMode === 'challenge' ? -3 : 0
+        const timerAdj = (parentSettings as any).timerAdjustSeconds
+        const speedBonus = typeof timerAdj === 'number'
+          ? timerAdj
+          : parentSettings.timerMode === 'relaxed' ? 5 : parentSettings.timerMode === 'challenge' ? -3 : 0
 
         const battle: BattleState = {
           sessionId: `s_${Date.now()}`,
@@ -706,6 +712,8 @@ export const useGameStore = create<GameStore>()(
           }
 
           const { player: levelled, levelUps } = processLevelUp(newPlayer)
+          // 2H-0: Sync account meta (level + avatar)
+          try { const aid = localStorage.getItem('mk_active_account'); if (aid) updateAccountMeta(aid, { level: levelled.level, avatarEmoji: levelled.activeSkin, lastPlayedAt: new Date().toISOString() }) } catch {}
 
           set(s => {
             const updatedChallenges = s.dailyChallenges.map(c => {
@@ -887,12 +895,14 @@ export const useGameStore = create<GameStore>()(
           if (!s.player) return s
           const oldId   = s.player.equippedItems[slot]
           const oldItem = oldId ? EQUIPMENT_DATA.find(e => e.id === oldId) : null
+          const upgrades = (s.player as any).itemUpgrades as Record<string,number> ?? {}
+          const oldUpBonus = (upgrades[oldId ?? ''] ?? 0) * 2
           let p = { ...s.player, equippedItems: { ...s.player.equippedItems, [slot]: null } }
-          if (oldItem?.stats.hp)         p.maxHp      -= oldItem.stats.hp
-          if (oldItem?.stats.attack)     p.attack      -= oldItem.stats.attack
-          if (oldItem?.stats.defence)    p.defence     -= oldItem.stats.defence
-          if (oldItem?.stats.speedBonus) p.speedBonus  -= oldItem.stats.speedBonus
-          if (oldItem?.stats.luckBonus)  p.luckBonus   -= oldItem.stats.luckBonus
+          if (oldItem?.stats.hp)         { p.maxHp      -= oldItem.stats.hp + oldUpBonus; p.hp = Math.min(p.hp, p.maxHp) }
+          if (oldItem?.stats.attack)       p.attack      -= oldItem.stats.attack + oldUpBonus
+          if (oldItem?.stats.defence)      p.defence     -= oldItem.stats.defence + oldUpBonus
+          if (oldItem?.stats.speedBonus)   p.speedBonus  -= oldItem.stats.speedBonus + (oldItem.stats.speedBonus ? oldUpBonus : 0)
+          if (oldItem?.stats.luckBonus)    p.luckBonus   -= oldItem.stats.luckBonus + (oldItem.stats.luckBonus ? oldUpBonus : 0)
           return { player: p }
         })
       },
@@ -1017,11 +1027,13 @@ export const useGameStore = create<GameStore>()(
             gold: s.player.gold - cost,
             itemUpgrades: { ...prevUpgrades, [itemId]: newUpgradeLevel },
           } as any
-          // BUG-C: Apply +2 stat bonus if item is currently equipped
+          // BUG-C/2H-B: Apply +2 stat bonus for ALL stat types if item is currently equipped
           const isEquipped = Object.values(s.player.equippedItems).includes(itemId)
           if (isEquipped) {
-            if (item.stats.attack)  newPlayer.attack  += 2
-            if (item.stats.defence) newPlayer.defence += 2
+            if (item.stats.attack)     newPlayer.attack     += 2
+            if (item.stats.defence)    newPlayer.defence    += 2
+            if (item.stats.speedBonus) newPlayer.speedBonus += 2
+            if (item.stats.luckBonus)  newPlayer.luckBonus  += 2
             if (item.stats.hp) {
               newPlayer.maxHp += 2
               newPlayer.hp = Math.min(newPlayer.hp + 2, newPlayer.maxHp)
@@ -1174,6 +1186,8 @@ export const useGameStore = create<GameStore>()(
           if (data.parentSettings) {
             if (!data.parentSettings.soundSettings) data.parentSettings.soundSettings = defaultParentSettings().soundSettings
             if (!data.parentSettings.accessibility) data.parentSettings.accessibility = defaultParentSettings().accessibility
+          if (data.parentSettings.timerAdjustSeconds === undefined) data.parentSettings.timerAdjustSeconds = 0
+          if (data.parentSettings.skipBattleIntro === undefined) data.parentSettings.skipBattleIntro = false
           }
           set({
             player:              data.player,
@@ -1191,7 +1205,7 @@ export const useGameStore = create<GameStore>()(
       },
     }),
     {
-      name: 'math-kingdom-save',
+      name: (() => { try { const id = localStorage.getItem('mk_active_account'); return id ? `mk_save_${id}` : 'math-kingdom-save' } catch { return 'math-kingdom-save' } })(),
       storage: createJSONStorage(() => localStorage),
       partialize: (s) => ({
         player:              s.player,

@@ -6,6 +6,7 @@ import { APP_VERSION } from '../../version'
 
 export const MainMenu: React.FC = () => {
   const player           = useGameStore(s => s.player)
+  const parentSettings   = useGameStore(s => s.parentSettings)
   const navigate         = useGameStore(s => s.navigate)
   const startBattle      = useGameStore(s => s.startBattle)
   const streak           = useGameStore(s => s.streak)
@@ -97,6 +98,27 @@ export const MainMenu: React.FC = () => {
             <div className="font-nunito text-xs" style={{color:'#4a5fa0'}}>Play every day for bonus rewards</div>
           </div>
         </div>
+
+        {/* 2H-D: Daily time remaining chip */}
+        {parentSettings.dailyTimeLimitMinutes && (() => {
+          const usedMins = Math.floor((player.totalPlayTimeSeconds ?? 0) / 60)
+          const remaining = Math.max(0, parentSettings.dailyTimeLimitMinutes - usedMins)
+          const pct = Math.max(0, remaining / parentSettings.dailyTimeLimitMinutes)
+          return (
+            <div className="rounded-xl p-3 mb-4 flex items-center gap-3"
+              style={{background: pct > 0.3 ? '#e8ffe8' : '#fff0e8', border: `1px solid ${pct > 0.3 ? '#a0dfa0' : '#ffb088'}`}}>
+              <span className="text-2xl">⏰</span>
+              <div className="flex-1">
+                <div className="font-fredoka text-sm" style={{color: pct > 0.3 ? '#1a6b1a' : '#a03000'}}>
+                  {remaining > 0 ? `${remaining} min left today` : "Time's up for today!"}
+                </div>
+                <div className="mt-1 h-1.5 rounded-full overflow-hidden" style={{background:'rgba(0,0,0,0.1)'}}>
+                  <div className="h-full rounded-full transition-all" style={{width:`${pct*100}%`, background: pct > 0.3 ? '#6BCB77' : '#FF6B35'}}/>
+                </div>
+              </div>
+            </div>
+          )
+        })()}
 
         {/* Nav grid */}
         <div className="grid grid-cols-2 gap-3">

@@ -8,6 +8,9 @@ export type QuestionType =
   |'worded_1step'|'worded_2step'|'worded_3step'
   |'factors_primes'|'negative_numbers'|'bodmas'
   |'quadratics'|'trigonometry'|'simultaneous'
+  |'roman_numerals'|'money_problems'|'time_problems'
+  |'venn_diagrams'|'function_machines'|'long_division'
+  |'volume_3d'|'algebraic_expressions'
 
 export interface Question {
   id: string
@@ -290,6 +293,8 @@ export interface ParentSettings {
   dailyTimeLimitMinutes: number|null
   dailyQuestionGoal: number|null
   timerMode: 'normal'|'relaxed'|'challenge'
+  timerAdjustSeconds: number  // 2H-E: -10 to +30, 0=normal, replaces timerMode radio
+  skipBattleIntro: boolean    // 2H-9
   lastUpdated: string
   // 2G-6
   soundSettings: {
@@ -347,12 +352,25 @@ export interface SessionStats {
   goldGained: number
 }
 
+// ─── Multi-Account System (2H-0) ────────────────────────────
+export interface AccountMeta {
+  id: string           // 'account_' + timestamp
+  name: string
+  pinHash: string      // '' if no PIN
+  hasPIN: boolean
+  createdAt: string
+  lastPlayedAt: string
+  avatarEmoji: string  // player.activeSkin
+  level: number        // player.level (for display)
+}
+
 export type AppScreen =
   |'splash'|'onboarding_welcome'|'onboarding_name'
   |'main_menu'|'world_map'|'region_detail'|'battle'|'level_up'
   |'collection_equipment'|'collection_pets'|'shop'
   |'daily_challenges'|'achievements'|'parent_pin'|'parent_dashboard'
   |'exam_setup'|'exam_active'|'exam_results'
+  |'account_select'
 
 export interface NavigationState {
   screen: AppScreen

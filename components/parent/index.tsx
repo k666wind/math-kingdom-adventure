@@ -2,6 +2,8 @@ import React, { useState } from 'react'
 import { APP_FULL } from '../../version'
 import { useGameStore } from '../../store/gameStore'
 import { setSfxVolume, setBgmEnabled } from '../../engine/audioEngine'
+import { SwitchAccountButton, AccountPINManager } from '../accounts'
+import { getActiveAccountId } from '../../store/accountManager'
 
 type Tab = 'overview' | 'topics' | 'settings' | 'progress'
 
@@ -334,24 +336,45 @@ export const ParentDashboard: React.FC = () => {
         {tab === 'settings' && (
           <div className="flex flex-col gap-4">
 
-            {/* Timer mode */}
+            {/* Timer mode — 2H-E: numeric stepper */}
             <div className="rounded-2xl p-4 bg-white" style={{ border: '1px solid rgba(45,27,105,0.08)' }}>
-              <div className="font-fredoka text-sm mb-3" style={{ color: '#2D1B69' }}>⏱️ Timer Mode</div>
-              <div className="flex gap-2">
-                {(['relaxed','normal','challenge'] as const).map(m => (
-                  <button key={m} onClick={() => updateParent({ timerMode: m })}
-                    className="flex-1 py-2.5 rounded-xl font-nunito text-xs font-bold capitalize active:scale-95"
-                    style={{
-                      background: parentSettings.timerMode===m ? '#2D1B69' : '#f0eeff',
-                      color: parentSettings.timerMode===m ? 'white' : '#2D1B69',
-                    }}>
-                    {m==='relaxed' ? '+5s' : m==='challenge' ? '-3s' : 'Normal'}
-                  </button>
-                ))}
+              <div className="font-fredoka text-sm mb-3" style={{ color: '#2D1B69' }}>⏱️ Timer Adjustment</div>
+              <div className="flex items-center gap-3 justify-center">
+                <button
+                  onClick={() => updateParent({ timerAdjustSeconds: Math.max(-10, ((parentSettings as any).timerAdjustSeconds ?? 0) - 5) })}
+                  className="w-10 h-10 rounded-full font-fredoka text-xl flex items-center justify-center active:scale-90"
+                  style={{ background: '#f0eeff', color: '#2D1B69' }}>−</button>
+                <div className="text-center min-w-16">
+                  <div className="font-fredoka text-2xl" style={{ color: '#2D1B69' }}>
+                    {((parentSettings as any).timerAdjustSeconds ?? 0) > 0 ? '+' : ''}{(parentSettings as any).timerAdjustSeconds ?? 0}s
+                  </div>
+                  <div className="font-nunito text-xs" style={{ color: '#aaa' }}>per question</div>
+                </div>
+                <button
+                  onClick={() => updateParent({ timerAdjustSeconds: Math.min(30, ((parentSettings as any).timerAdjustSeconds ?? 0) + 5) })}
+                  className="w-10 h-10 rounded-full font-fredoka text-xl flex items-center justify-center active:scale-90"
+                  style={{ background: '#f0eeff', color: '#2D1B69' }}>+</button>
               </div>
-              <p className="font-nunito text-xs mt-2" style={{ color: '#aaa' }}>
-                Relaxed adds 5 seconds per question. Challenge removes 3 seconds (like the real 11+).
+              <p className="font-nunito text-xs mt-2 text-center" style={{ color: '#aaa' }}>
+                −10s = ultra-challenge · 0s = normal · +30s = relaxed
               </p>
+            </div>
+
+            {/* 2H-9: Skip battle intro toggle */}
+            <div className="rounded-2xl p-4 bg-white" style={{ border: '1px solid rgba(45,27,105,0.08)' }}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="font-fredoka text-sm" style={{ color: '#2D1B69' }}>⚡ Skip Battle Intro</div>
+                  <div className="font-nunito text-xs mt-0.5" style={{ color: '#aaa' }}>Jump straight into questions</div>
+                </div>
+                <button
+                  onClick={() => updateParent({ skipBattleIntro: !parentSettings.skipBattleIntro })}
+                  className="w-12 h-6 rounded-full transition-colors relative"
+                  style={{ background: parentSettings.skipBattleIntro ? '#6BCB77' : '#ccc' }}>
+                  <div className="absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform"
+                    style={{ left: parentSettings.skipBattleIntro ? '26px' : '2px' }} />
+                </button>
+              </div>
             </div>
 
             {/* Daily time limit */}
@@ -576,6 +599,10 @@ export const ParentDashboard: React.FC = () => {
             </div>
 
             {/* Reset game */}
+            {/* 2H-0: Account management */}
+            <SwitchAccountButton />
+            {(() => { const aid = getActiveAccountId(); return aid ? <AccountPINManager accountId={aid} /> : null })()}
+
             <button onClick={() => { if(window.confirm('Reset ALL game data? This cannot be undone.')) useGameStore.getState().resetGame() }}
               className="w-full py-3.5 rounded-2xl font-nunito text-sm font-bold active:scale-95"
               style={{ background: 'rgba(255,77,109,0.1)', color: '#cc2244', border: '1px solid rgba(255,77,109,0.3)' }}>

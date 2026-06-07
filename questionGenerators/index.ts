@@ -1458,6 +1458,15 @@ const GENERATORS: Record<QuestionType, (d: DifficultyLevel) => Question> = {
   quadratics:        generateQuadratics,
   trigonometry:      generateTrigonometry,
   simultaneous:      generateSimultaneous,
+  // 2H-4: New question types
+  roman_numerals:         generateRomanNumerals,
+  money_problems:         generateMoneyProblems,
+  time_problems:          generateTimeProblems,
+  venn_diagrams:          generateVennDiagrams,
+  function_machines:      generateFunctionMachines,
+  long_division:          generateLongDivision,
+  volume_3d:              generateVolume3D,
+  algebraic_expressions:  generateAlgebraicExpressions,
 }
 
 
@@ -1541,6 +1550,362 @@ export function generateSimultaneousGold(): Question {
   }
 }
 
+
+// ─────────────────────────────────────────────────────────────
+// 2H-4: New Question Type Generators
+// ─────────────────────────────────────────────────────────────
+
+// ── Roman Numerals (Y3-Y4) ───────────────────────────────────
+export function generateRomanNumerals(diff: DifficultyLevel): Question {
+  const ROMAN_MAP: [number, string][] = [
+    [1000,'M'],[900,'CM'],[500,'D'],[400,'CD'],
+    [100,'C'],[90,'XC'],[50,'L'],[40,'XL'],
+    [10,'X'],[9,'IX'],[5,'V'],[4,'IV'],[1,'I'],
+  ]
+  const toRoman = (n: number): string => {
+    let result = ''
+    for (const [val, sym] of ROMAN_MAP) {
+      while (n >= val) { result += sym; n -= val }
+    }
+    return result
+  }
+  const max = diff === 'bronze' ? 20 : diff === 'silver' ? 100 : 500
+  const num = rand(1, max)
+  const roman = toRoman(num)
+  // Randomly flip direction
+  const toArabic = Math.random() > 0.5
+  const correct = toArabic ? String(num) : roman
+  const wrongNums = [num + rand(1,5), num - rand(1,5), num + rand(6,15)].map(n => Math.max(1, n))
+  const wrongs = toArabic
+    ? wrongNums.map(String)
+    : wrongNums.map(toRoman)
+  const { answers, correctIndex } = buildMCQ(correct, wrongs)
+  return {
+    id: qid(), tier: diff === 'gold' ? 'Y4' : 'Y3', type: 'roman_numerals', difficulty: diff,
+    questionText: toArabic
+      ? `What is ${roman} in numbers?`
+      : `Write ${num} as a Roman numeral.`,
+    answers, correctIndex,
+    explanation: toArabic
+      ? `${roman} = ${num}`
+      : `${num} in Roman numerals is ${roman}`,
+    timeLimitSeconds: diff === 'bronze' ? 20 : 25,
+  }
+}
+
+// ── Money Problems (Y3-Y5) ───────────────────────────────────
+export function generateMoneyProblems(diff: DifficultyLevel): Question {
+  const pence = (p: number) => p < 100 ? `${p}p` : `£${(p/100).toFixed(2)}`
+  if (diff === 'bronze') {
+    // Change from purchase
+    const price = rand(10, 90)
+    const paid = [100, 200, 500][rand(0,2)]
+    const change = paid - price
+    const { answers, correctIndex } = buildMCQ(pence(change), [pence(change+10), pence(change-10 > 0 ? change-10 : change+20), pence(paid)])
+    return {
+      id: qid(), tier: 'Y3', type: 'money_problems', difficulty: diff,
+      questionText: `You buy something for ${pence(price)} and pay ${pence(paid)}. How much change do you get?`,
+      answers, correctIndex,
+      explanation: `${pence(paid)} − ${pence(price)} = ${pence(change)}`,
+      timeLimitSeconds: 25,
+    }
+  }
+  if (diff === 'silver') {
+    // Total cost
+    const item1 = rand(50, 300), item2 = rand(20, 150), qty = rand(2, 4)
+    const total = item1 + item2 * qty
+    const { answers, correctIndex } = buildMCQ(pence(total), [pence(total+50), pence(total-50 > 0 ? total-50 : total+100), pence(item1+item2)])
+    return {
+      id: qid(), tier: 'Y4', type: 'money_problems', difficulty: diff,
+      questionText: `A book costs ${pence(item1)} and a pen costs ${pence(item2)}. What is the total cost of 1 book and ${qty} pens?`,
+      answers, correctIndex,
+      explanation: `${pence(item1)} + ${qty} × ${pence(item2)} = ${pence(item1)} + ${pence(item2*qty)} = ${pence(total)}`,
+      timeLimitSeconds: 30,
+    }
+  }
+  // Gold: comparison / best value
+  const qty1 = rand(3, 6), price1 = rand(80, 150)
+  const qty2 = rand(6, 12), price2 = Math.round(price1 * qty1 / qty2 * (Math.random() > 0.5 ? 0.9 : 1.15))
+  const perUnit1 = price1 / qty1, perUnit2 = price2 / qty2
+  const better = perUnit1 < perUnit2 ? `Pack A (${qty1} for ${pence(price1)})` : `Pack B (${qty2} for ${pence(price2)})`
+  const worse = perUnit1 < perUnit2 ? `Pack B (${qty2} for ${pence(price2)})` : `Pack A (${qty1} for ${pence(price1)})`
+  const { answers, correctIndex } = buildMCQ(better, [worse, 'Same value', 'Cannot tell'])
+  return {
+    id: qid(), tier: 'Y5', type: 'money_problems', difficulty: diff,
+    questionText: `Pack A: ${qty1} items for ${pence(price1)}. Pack B: ${qty2} items for ${pence(price2)}. Which is better value?`,
+    answers, correctIndex,
+    explanation: `Pack A: ${pence(Math.round(perUnit1))} each. Pack B: ${pence(Math.round(perUnit2))} each. ${better} is better value.`,
+    timeLimitSeconds: 35,
+  }
+}
+
+// ── Time Problems (Y3-Y5) ────────────────────────────────────
+export function generateTimeProblems(diff: DifficultyLevel): Question {
+  const pad = (n: number) => String(n).padStart(2,'0')
+  if (diff === 'bronze') {
+    // Duration in minutes
+    const startH = rand(9,14), startM = rand(0,3)*15
+    const durMins = rand(1,4)*15
+    const endM = (startM + durMins) % 60
+    const endH = startH + Math.floor((startM + durMins)/60)
+    const correct = `${durMins} minutes`
+    const { answers, correctIndex } = buildMCQ(correct, [`${durMins+15} minutes`, `${durMins-15 > 0 ? durMins-15 : durMins+30} minutes`, `${durMins+30} minutes`])
+    return {
+      id: qid(), tier: 'Y3', type: 'time_problems', difficulty: diff,
+      questionText: `A film starts at ${startH}:${pad(startM)} and ends at ${endH}:${pad(endM)}. How long is it?`,
+      answers, correctIndex,
+      explanation: `From ${startH}:${pad(startM)} to ${endH}:${pad(endM)} is ${durMins} minutes.`,
+      timeLimitSeconds: 25,
+    }
+  }
+  if (diff === 'silver') {
+    // 12hr to 24hr conversion
+    const h = rand(1,12), m = rand(0,5)*10
+    const isPM = Math.random() > 0.5
+    const h24 = isPM ? (h === 12 ? 12 : h + 12) : (h === 12 ? 0 : h)
+    const correct = `${pad(h24)}:${pad(m)}`
+    const { answers, correctIndex } = buildMCQ(correct, [
+      `${pad(h24 === 0 ? 12 : h24-1)}:${pad(m)}`,
+      `${pad((h24+1) % 24)}:${pad(m)}`,
+      `${pad(h)}:${pad(m)}`,
+    ])
+    return {
+      id: qid(), tier: 'Y4', type: 'time_problems', difficulty: diff,
+      questionText: `Convert ${h}:${pad(m)} ${isPM ? 'PM' : 'AM'} to 24-hour time.`,
+      answers, correctIndex,
+      explanation: `${h}:${pad(m)} ${isPM ? 'PM' : 'AM'} = ${correct} in 24-hour time.`,
+      timeLimitSeconds: 25,
+    }
+  }
+  // Gold: find end time after duration
+  const startH = rand(8,15), startM = rand(0,5)*10
+  const durH = rand(1,3), durM = rand(0,3)*15
+  const totalMins = startH*60 + startM + durH*60 + durM
+  const endH = Math.floor(totalMins/60) % 24, endM = totalMins % 60
+  const correct = `${pad(endH)}:${pad(endM)}`
+  const { answers, correctIndex } = buildMCQ(correct, [
+    `${pad((endH+1)%24)}:${pad(endM)}`,
+    `${pad(endH)}:${pad((endM+15)%60)}`,
+    `${pad(endH-1 >= 0 ? endH-1 : 23)}:${pad(endM)}`,
+  ])
+  return {
+    id: qid(), tier: 'Y5', type: 'time_problems', difficulty: diff,
+    questionText: `A journey starts at ${pad(startH)}:${pad(startM)} and takes ${durH} hour${durH>1?'s':''} ${durM} minutes. What time does it arrive?`,
+    answers, correctIndex,
+    explanation: `${pad(startH)}:${pad(startM)} + ${durH}h ${durM}min = ${correct}`,
+    timeLimitSeconds: 35,
+  }
+}
+
+// ── Venn Diagrams (Y4-Y6) ────────────────────────────────────
+export function generateVennDiagrams(diff: DifficultyLevel): Question {
+  const onlyA = rand(3,8), onlyB = rand(3,8), both = rand(1,5)
+  const totalA = onlyA + both, totalB = onlyB + both, union = onlyA + onlyB + both
+  const neither = diff === 'gold' ? rand(2,6) : 0
+  const total = union + neither
+  const qType = rand(0, diff === 'bronze' ? 1 : diff === 'silver' ? 2 : 3)
+  let questionText = '', correct = ''
+  if (qType === 0) {
+    correct = String(both)
+    questionText = `In a class of ${total > union ? total : union} students, ${totalA} study Maths, ${totalB} study Science, and ${both} study both. How many study BOTH subjects?`
+  } else if (qType === 1) {
+    correct = String(union)
+    questionText = `${onlyA} students study only Maths, ${onlyB} study only Science, and ${both} study both. How many study at least one subject?`
+  } else if (qType === 2) {
+    correct = String(onlyA)
+    questionText = `${totalA} students study Maths, and ${both} of them also study Science. How many study Maths ONLY?`
+  } else {
+    correct = String(neither)
+    questionText = `In a class of ${total} students, ${totalA} study Maths, ${totalB} study Science, and ${both} study both. How many study neither?`
+  }
+  const n = parseInt(correct)
+  const { answers, correctIndex } = buildMCQ(correct, [String(n+1), String(n+both), String(n-1 >= 0 ? n-1 : n+2)])
+  return {
+    id: qid(), tier: diff === 'bronze' ? 'Y4' : diff === 'silver' ? 'Y5' : 'Y6',
+    type: 'venn_diagrams', difficulty: diff,
+    questionText, answers, correctIndex,
+    explanation: `Only A: ${onlyA}, Only B: ${onlyB}, Both: ${both}. Answer: ${correct}`,
+    timeLimitSeconds: 35,
+  }
+}
+
+// ── Function Machines (Y5-Y6) ────────────────────────────────
+export function generateFunctionMachines(diff: DifficultyLevel): Question {
+  const ops: Array<{sym: string, apply: (n: number) => number, label: string}> = [
+    { sym: '×2', apply: n => n*2, label: 'multiply by 2' },
+    { sym: '×3', apply: n => n*3, label: 'multiply by 3' },
+    { sym: '+5', apply: n => n+5, label: 'add 5' },
+    { sym: '+10', apply: n => n+10, label: 'add 10' },
+    { sym: '−3', apply: n => n-3, label: 'subtract 3' },
+    { sym: '×4', apply: n => n*4, label: 'multiply by 4' },
+  ]
+  const op1 = ops[rand(0, ops.length-1)]
+  const op2 = ops[rand(0, ops.length-1)]
+  const input = rand(3, 12)
+  const mid = op1.apply(input)
+  const output = op2.apply(mid)
+  if (diff === 'bronze') {
+    // Find output
+    const correct = String(output)
+    const { answers, correctIndex } = buildMCQ(correct, [String(output+2), String(output-2 > 0 ? output-2 : output+4), String(op1.apply(input)+op2.apply(input))])
+    return {
+      id: qid(), tier: 'Y5', type: 'function_machines', difficulty: diff,
+      questionText: `Input: ${input} → [${op1.sym}] → [${op2.sym}] → Output = ?`,
+      answers, correctIndex,
+      explanation: `${input} ${op1.sym} = ${mid}, then ${mid} ${op2.sym} = ${output}`,
+      timeLimitSeconds: 25,
+    }
+  }
+  if (diff === 'silver') {
+    // Find input given output
+    const correct = String(input)
+    const { answers, correctIndex } = buildMCQ(correct, [String(input+1), String(input+2), String(input-1 > 0 ? input-1 : input+3)])
+    return {
+      id: qid(), tier: 'Y5', type: 'function_machines', difficulty: diff,
+      questionText: `? → [${op1.sym}] → [${op2.sym}] → ${output}. Find the input.`,
+      answers, correctIndex,
+      explanation: `Work backwards: ${output} reverse-${op2.sym} = ${mid}, then ${mid} reverse-${op1.sym} = ${input}`,
+      timeLimitSeconds: 30,
+    }
+  }
+  // Gold: find missing rule
+  const correct = `${op1.sym} then ${op2.sym}`
+  const alts = [
+    `${op2.sym} then ${op1.sym}`,
+    `${ops[rand(0,ops.length-1)].sym} then ${op2.sym}`,
+    `${op1.sym} then ${ops[rand(0,ops.length-1)].sym}`,
+  ]
+  const { answers, correctIndex } = buildMCQ(correct, alts)
+  return {
+    id: qid(), tier: 'Y6', type: 'function_machines', difficulty: diff,
+    questionText: `A 2-step function machine maps ${input} → ${output} and ${input+1} → ${op2.apply(op1.apply(input+1))}. What are the two rules?`,
+    answers, correctIndex,
+    explanation: `Apply ${op1.sym}: ${input} → ${mid}. Apply ${op2.sym}: ${mid} → ${output}`,
+    timeLimitSeconds: 35,
+  }
+}
+
+// ── Long Division (Y5-Y6) ────────────────────────────────────
+export function generateLongDivision(diff: DifficultyLevel): Question {
+  const divisor = rand(2, diff === 'bronze' ? 5 : diff === 'silver' ? 9 : 12)
+  const quotient = rand(10, diff === 'bronze' ? 50 : diff === 'silver' ? 99 : 99)
+  const remainder = diff === 'gold' ? rand(1, divisor-1) : 0
+  const dividend = divisor * quotient + remainder
+  const correct = remainder > 0 ? `${quotient} remainder ${remainder}` : String(quotient)
+  const wrongQ = quotient + rand(1,3)
+  const wrongR = remainder > 0 ? (remainder + 1) % divisor || 1 : 0
+  const { answers, correctIndex } = buildMCQ(correct, [
+    remainder > 0 ? `${wrongQ} remainder ${remainder}` : String(wrongQ),
+    remainder > 0 ? `${quotient} remainder ${wrongR}` : String(quotient-1),
+    remainder > 0 ? `${quotient-1} remainder ${remainder}` : String(quotient+rand(4,10)),
+  ])
+  return {
+    id: qid(), tier: diff === 'bronze' ? 'Y5' : 'Y6', type: 'long_division', difficulty: diff,
+    questionText: `Calculate ${dividend} ÷ ${divisor}`,
+    answers, correctIndex,
+    explanation: `${dividend} ÷ ${divisor} = ${correct}. Check: ${divisor} × ${quotient}${remainder > 0 ? ` + ${remainder}` : ''} = ${dividend}`,
+    timeLimitSeconds: diff === 'bronze' ? 30 : 40,
+  }
+}
+
+// ── Volume 3D (Y6-Y7) ────────────────────────────────────────
+export function generateVolume3D(diff: DifficultyLevel): Question {
+  if (diff === 'bronze') {
+    const l = rand(2,8), w = rand(2,6), h = rand(2,5)
+    const vol = l * w * h
+    const { answers, correctIndex } = buildMCQ(String(vol), [String(vol+l*w), String(l*w + w*h + l*h), String(2*(l*w + w*h + l*h))])
+    return {
+      id: qid(), tier: 'Y6', type: 'volume_3d', difficulty: diff,
+      questionText: `Find the volume of a cuboid with length ${l}cm, width ${w}cm, and height ${h}cm.`,
+      answers: answers.map(a => a + ' cm³'), correctIndex,
+      explanation: `Volume = l × w × h = ${l} × ${w} × ${h} = ${vol} cm³`,
+      timeLimitSeconds: 25,
+    }
+  }
+  if (diff === 'silver') {
+    // Find missing dimension
+    const l = rand(3,8), w = rand(2,6)
+    const vol = l * w * rand(2,5)
+    const h = vol / (l * w)
+    const { answers, correctIndex } = buildMCQ(`${h}cm`, [`${h+1}cm`, `${h+2}cm`, `${h-1 > 0 ? h-1 : h+3}cm`])
+    return {
+      id: qid(), tier: 'Y6', type: 'volume_3d', difficulty: diff,
+      questionText: `A cuboid has volume ${vol} cm³, length ${l}cm, and width ${w}cm. Find its height.`,
+      answers, correctIndex,
+      explanation: `h = Volume ÷ (l × w) = ${vol} ÷ (${l} × ${w}) = ${vol} ÷ ${l*w} = ${h}cm`,
+      timeLimitSeconds: 30,
+    }
+  }
+  // Gold: composite shape
+  const l1 = rand(4,8), w1 = rand(3,6), h1 = rand(2,4)
+  const l2 = rand(2,l1-1), w2 = rand(2,w1-1), h2 = rand(1,3)
+  const vol = l1*w1*h1 + l2*w2*h2
+  const { answers, correctIndex } = buildMCQ(String(vol), [String(vol+l2*w2), String(l1*w1*h1), String(vol-h2*l2*w2 + h2)])
+  return {
+    id: qid(), tier: 'Y7', type: 'volume_3d', difficulty: diff,
+    questionText: `An L-shaped solid is made of two cuboids: (${l1}×${w1}×${h1}) cm and (${l2}×${w2}×${h2}) cm. Find the total volume in cm³.`,
+    answers: answers.map(a => a + ' cm³'), correctIndex,
+    explanation: `${l1}×${w1}×${h1} + ${l2}×${w2}×${h2} = ${l1*w1*h1} + ${l2*w2*h2} = ${vol} cm³`,
+    timeLimitSeconds: 40,
+  }
+}
+
+// ── Algebraic Expressions (Y7-Y8) ───────────────────────────
+export function generateAlgebraicExpressions(diff: DifficultyLevel): Question {
+  if (diff === 'bronze') {
+    // Expand single brackets: a(bx + c)
+    const a = rand(2,5), b = rand(2,4), c = rand(1,8)
+    const correct = `${a*b}x + ${a*c}`
+    const { answers, correctIndex } = buildMCQ(correct, [
+      `${a+b}x + ${a+c}`,
+      `${a*b}x + ${c}`,
+      `${a}x + ${a*c}`,
+    ])
+    return {
+      id: qid(), tier: 'Y7', type: 'algebraic_expressions', difficulty: diff,
+      questionText: `Expand: ${a}(${b}x + ${c})`,
+      answers, correctIndex,
+      explanation: `${a} × ${b}x = ${a*b}x, and ${a} × ${c} = ${a*c}. So ${a}(${b}x + ${c}) = ${correct}`,
+      timeLimitSeconds: 25,
+    }
+  }
+  if (diff === 'silver') {
+    // Factorise: find HCF
+    const hcf = rand(2,5)
+    const b = rand(2,6), c = rand(1,5)
+    const a1 = hcf * b, a2 = hcf * c
+    const correct = `${hcf}(${b}x + ${c})`
+    const { answers, correctIndex } = buildMCQ(correct, [
+      `${b}(${hcf}x + ${c})`,
+      `${hcf}(${b}x − ${c})`,
+      `${a1}x + ${a2}`,
+    ])
+    return {
+      id: qid(), tier: 'Y7', type: 'algebraic_expressions', difficulty: diff,
+      questionText: `Factorise: ${a1}x + ${a2}`,
+      answers, correctIndex,
+      explanation: `HCF of ${a1} and ${a2} is ${hcf}. So ${a1}x + ${a2} = ${correct}`,
+      timeLimitSeconds: 30,
+    }
+  }
+  // Gold: substitute values
+  const a = rand(2,5), b = rand(1,4), c = rand(1,6)
+  const x = rand(2,5), y = rand(2,4)
+  const val = a*x*x + b*y - c
+  const { answers, correctIndex } = buildMCQ(String(val), [
+    String(a*x + b*y - c),
+    String(a*x*x + b*y + c),
+    String(val + rand(1,5)),
+  ])
+  return {
+    id: qid(), tier: 'Y8', type: 'algebraic_expressions', difficulty: diff,
+    questionText: `If x = ${x} and y = ${y}, find the value of ${a}x² + ${b}y − ${c}.`,
+    answers, correctIndex,
+    explanation: `${a}(${x})² + ${b}(${y}) − ${c} = ${a*x*x} + ${b*y} − ${c} = ${val}`,
+    timeLimitSeconds: 35,
+  }
+}
+
 // ─────────────────────────────────────────────────────────────
 // 2G-1: getGeneratorsForYearGroup helper
 // ─────────────────────────────────────────────────────────────
@@ -1549,12 +1914,13 @@ type GenFn = (d: DifficultyLevel) => Question
 
 export function getGeneratorsForYearGroup(yearGroup: string): GenFn[] {
   const base: GenFn[] = [generateAddition, generateSubtraction, generateMultiplication, generateDivision]
-  if (yearGroup === 'Y4') return [...base, generateFractions, generateDecimals]
-  if (yearGroup === 'Y5') return [...base, generateFractions, generatePercentages, generateWorded1Step]
+  if (yearGroup === 'Y4') return [...base, generateFractions, generateDecimals, generateRomanNumerals, generateMoneyProblems]
+  if (yearGroup === 'Y5') return [...base, generateFractions, generatePercentages, generateWorded1Step, generateMoneyProblems, generateTimeProblems, generateFunctionMachines, generateLongDivision]
   if (yearGroup === 'Y6') return [
     ...base, generateFractions, generatePercentages,
     generateRatio, generateAlgebra, generateGeometryArea, generateStatistics,
-    generateWorded2Step, generateBodmas,
+    generateWorded2Step, generateBodmas, generateVennDiagrams, generateFunctionMachines,
+    generateLongDivision, generateTimeProblems, generateVolume3D,
   ]
   // mixed: all types including Y7-Y11
   return [
@@ -1564,5 +1930,9 @@ export function getGeneratorsForYearGroup(yearGroup: string): GenFn[] {
     generateWorded3Step, generateNegativeNumbers, generateBodmas, generateFactorsPrimes,
     generateCoordinates, generateDecimals, generateQuadratics, generateTrigonometry,
     generateSimultaneous,
+    // 2H-4: new types
+    generateRomanNumerals, generateMoneyProblems, generateTimeProblems,
+    generateVennDiagrams, generateFunctionMachines, generateLongDivision,
+    generateVolume3D, generateAlgebraicExpressions,
   ]
 }

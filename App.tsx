@@ -11,6 +11,8 @@ import { DailyChallengesScreen } from './components/challenges'
 import { AchievementsScreen } from './components/achievements'
 import { ParentPinScreen, ParentDashboard } from './components/parent'
 import { ExamSetupScreen, ExamActiveScreen, ExamResultsScreen } from './components/exam'
+import { AccountSelectScreen } from './components/accounts'
+import { migrateLegacySaveIfNeeded, getAccounts, getActiveAccountId, setActiveAccountId } from './store/accountManager'
 
 export default function App() {
   const screen = useGameStore(s => s.nav.screen)
@@ -29,6 +31,22 @@ export default function App() {
     return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off) }
   }, [])
 
+  // 2H-0: Account migration — run once on startup
+  useEffect(() => {
+    const accounts = getAccounts()
+    if (accounts.length === 0) {
+      // Fresh install or first run with new system
+      const migratedId = migrateLegacySaveIfNeeded()
+      if (migratedId) {
+        // Legacy save migrated — reload to use new persist key
+        setActiveAccountId(migratedId)
+      }
+    } else if (!getActiveAccountId() && accounts.length > 0) {
+      // Accounts exist but none active — show account select
+      navigate('account_select')
+    }
+  }, [])
+
   useEffect(() => { refreshDailyChallenges() }, [])
 
   // BUG-6: Enforce daily time limit — redirect away from battle if over limit
@@ -42,7 +60,8 @@ export default function App() {
   }, [screen, player?.totalPlayTimeSeconds, parentSettings.dailyTimeLimitMinutes])
 
   // 2G-7: Font scale class
-  const fontScale = parentSettings.accessibility?.fontScale ?? 'normal'
+  const fontScale    = parentSettings.accessibility?.fontScale ?? 'normal'
+  const highContrast = parentSettings.accessibility?.highContrast ?? false
 
   const screens: Record<string, React.ReactNode> = {
     splash:               <SplashScreen />,
@@ -60,6 +79,8 @@ export default function App() {
     achievements:         <AchievementsScreen />,
     parent_pin:           <ParentPinScreen />,
     parent_dashboard:     <ParentDashboard />,
+    // 2H-0: Account select
+    account_select:       <AccountSelectScreen />,
     // 2G-1: Exam screens
     exam_setup:           <ExamSetupScreen />,
     exam_active:          <ExamActiveScreen />,
@@ -72,7 +93,7 @@ export default function App() {
     ['battle', 'world_map', 'region_detail'].includes(screen)
 
   return (
-    <div className={`w-full h-full overflow-hidden relative font-scale-${fontScale}`}>
+    <div className={`w-full h-full overflow-hidden relative font-scale-${fontScale}${highContrast ? ' high-contrast' : ''}`}>
       {/* 2F-11: Offline banner */}
       {!isOnline && (
         <div className="fixed top-0 left-0 right-0 z-50 text-center py-1 font-nunito text-xs"

@@ -90,3 +90,65 @@
 .font-scale-normal  { font-size: 100%; }
 .font-scale-large   { font-size: 112%; }
 .font-scale-xlarge  { font-size: 125%; }
+
+/* ─── 2H-11: High Contrast Mode ─────────────────────────── */
+.high-contrast {
+  --hc-bg: #000000;
+  --hc-text: #ffffff;
+  --hc-accent: #FFE66D;
+  --hc-border: #ffffff;
+}
+
+.high-contrast body,
+.high-contrast #root,
+.high-contrast .h-full {
+  background: #000000 !important;
+}
+
+.high-contrast button:not([style*="background: transparent"]):not([style*="background:transparent"]) {
+  border: 2px solid white !important;
+  outline: 2px solid transparent;
+}
+
+.high-contrast button:focus-visible {
+  outline: 3px solid #FFE66D !important;
+  outline-offset: 2px;
+}
+
+/* Force readable text on dark backgrounds */
+.high-contrast [style*="color: rgba(255,255,255,0.6)"],
+.high-contrast [style*="color:rgba(255,255,255,0.6)"] {
+  color: rgba(255,255,255,0.9) !important;
+}
+
+.high-contrast [style*="color: rgba(45,27,105"],
+.high-contrast [style*="color:rgba(45,27,105"] {
+  color: #ffffff !important;
+}
+
+/* Card backgrounds in high contrast */
+.high-contrast .bg-white,
+.high-contrast [class*="bg-white"] {
+  background: #1a1a1a !important;
+  border-color: #555 !important;
+}
+
+/* Battle screen legibility */
+.high-contrast [style*="background: #2D1B69"],
+.high-contrast [style*="background:#2D1B69"],
+.high-contrast [style*="background: linear-gradient"] {
+  filter: contrast(1.2);
+}
+
+/* Answer buttons in high contrast */
+.high-contrast [style*="background: #f0eeff"] {
+  background: #1a1a3a !important;
+  color: #ffffff !important;
+  border: 2px solid #aaa !important;
+}
+
+/* Ensure gold/correct colours remain visible */
+.high-contrast [style*="color: #FFE66D"],
+.high-contrast [style*="color:#FFE66D"] {
+  text-shadow: 0 0 8px rgba(255,230,109,0.5);
+}
