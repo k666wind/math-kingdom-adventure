@@ -59,6 +59,12 @@ export interface Player {
   battleRecords: Record<string, BattleRecord>
   seenRegions: string[]
   activeSkin: string           // emoji string e.g. '🧙'
+  examHistory: ExamResult[]    // 2G-1: last 10 mock exams
+  weeklyStats: Array<{         // 2G-3: daily stats for chart
+    date: string
+    correct: number
+    attempted: number
+  }>
 }
 
 export interface EquippedItems {
@@ -285,6 +291,48 @@ export interface ParentSettings {
   dailyQuestionGoal: number|null
   timerMode: 'normal'|'relaxed'|'challenge'
   lastUpdated: string
+  // 2G-6
+  soundSettings: {
+    sfxVolume: number
+    bgmVolume: number
+    bgmEnabled: boolean
+  }
+  // 2G-7
+  accessibility: {
+    fontScale: 'normal'|'large'|'xlarge'
+    highContrast: boolean
+    readAloud: boolean
+  }
+}
+
+// ─── Exam types (2G-1) ───────────────────────────────────────
+export interface ExamConfig {
+  questionCount: 25 | 50
+  timeLimitMinutes: 25 | 45
+  yearGroup: 'Y4' | 'Y5' | 'Y6' | 'mixed'
+  examBoard: 'GL' | 'CEM' | 'CSSE' | 'practice'
+}
+
+export interface ExamSession {
+  config: ExamConfig
+  questions: Question[]
+  answers: (number | null)[]
+  flagged: boolean[]
+  currentIndex: number
+  startedAt: string
+  finishedAt: string | null
+  status: 'active' | 'completed' | 'timed_out'
+}
+
+export interface ExamResult {
+  id: string
+  config: ExamConfig
+  totalQuestions: number
+  correctAnswers: number
+  accuracy: number
+  timeTakenSeconds: number
+  topicBreakdown: Record<string, { attempted: number; correct: number }>
+  date: string
 }
 
 export interface SessionStats {
@@ -304,6 +352,7 @@ export type AppScreen =
   |'main_menu'|'world_map'|'region_detail'|'battle'|'level_up'
   |'collection_equipment'|'collection_pets'|'shop'
   |'daily_challenges'|'achievements'|'parent_pin'|'parent_dashboard'
+  |'exam_setup'|'exam_active'|'exam_results'
 
 export interface NavigationState {
   screen: AppScreen

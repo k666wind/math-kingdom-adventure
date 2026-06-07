@@ -456,4 +456,14 @@ export const ACHIEVEMENTS_DATA = [
   { id:'trig_first_gold', emoji:'📏', name:'Trig Ace',             description:'Get a gold answer on trigonometry',          category:'academic'  as const, reward:{ gold:50 } },
   { id:'robot_dog_save',  emoji:'🤖', name:'Shielded!',            description:'Let Robot Dog absorb a wrong answer',        category:'combat'    as const, reward:{ gold:30 } },
   { id:'full_pet_slots',  emoji:'🐾', name:'Pet Master',           description:'Fill all 3 pet slots',                       category:'collection' as const, reward:{ crystals:2 } },
+  // 2G-4: New achievements
+  { id:'tower_floor5',    emoji:'🏛️', name:'Tower Scholar',        description:'Complete Scholar\'s Tower floor 5',           category:'academic'  as const, reward:{ gold:100 } },
+  { id:'tower_complete',  emoji:'🎓', name:'Grand Scholar',        description:'Complete all 10 Tower floors',                category:'academic'  as const, reward:{ crystals:3, gold:200 } },
+  { id:'exam_pass',       emoji:'📜', name:'Exam Ready',           description:'Score 80%+ on any mock exam',                category:'academic'  as const, reward:{ gold:150 } },
+  { id:'exam_perfect',    emoji:'🏆', name:'Exam Master',          description:'Score 100% on any mock exam',                category:'academic'  as const, reward:{ crystals:5, gold:300 } },
+  { id:'upgrade5',        emoji:'⬆️', name:'Enchanter',            description:'Upgrade any item to ★5',                    category:'collection' as const, reward:{ gold:100 } },
+  { id:'all_regions',     emoji:'🗺️', name:'Explorer',             description:'Unlock all 9 regions',                       category:'special'   as const, reward:{ crystals:3 } },
+  { id:'weekly_claim',    emoji:'📅', name:'Weekly Warrior',       description:'Claim a weekly challenge reward',            category:'streak'    as const, reward:{ gold:100 } },
+  { id:'topic_ace',       emoji:'🎯', name:'Topic Ace',            description:'10 consecutive correct on same topic',       category:'academic'  as const, reward:{ gold:75, crystals:1 } },
+  { id:'pet_max',         emoji:'⭐', name:'Pet Elder',            description:'Max level any pet (Lv.10)',                  category:'collection' as const, reward:{ crystals:3 } },
 ]

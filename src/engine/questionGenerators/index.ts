@@ -1468,3 +1468,101 @@ export function generateQuestion(
   const gen = GENERATORS[type] ?? generateAddition
   return gen(difficulty)
 }
+
+// ─────────────────────────────────────────────────────────────
+// 2G-2: Enhanced Gold-Tier Generators for Y7-Y11
+// ─────────────────────────────────────────────────────────────
+
+export function generateQuadraticsGold(): Question {
+  // Completing the square variant
+  const b = rand(2, 8) * (Math.random() < 0.5 ? 1 : -1)
+  const c = rand(1, 10)
+  const p = b / 2
+  const q2 = c - p * p  // in form (x+p)² + q
+  const bStr = b >= 0 ? `+${b}` : `${b}`
+  const correct = String(Math.round(q2 * 100) / 100)
+  const { answers, correctIndex } = buildMCQ(correct, [
+    String(Math.round((q2 + 2) * 100) / 100),
+    String(Math.round((q2 - 2) * 100) / 100),
+    String(Math.round((p * p) * 100) / 100),
+  ])
+  return {
+    id: qid(), tier: 'Y10', type: 'quadratics', difficulty: 'gold',
+    questionText: `Write x²${bStr}x + ${c} in the form (x + p)² + q. What is q?`,
+    answers, correctIndex,
+    explanation: `p = ${b}/2 = ${p}. q = ${c} − p² = ${c} − ${Math.round(p*p*100)/100} = ${correct}`,
+    timeLimitSeconds: 60,
+  }
+}
+
+export function generateTrigonometryGold(): Question {
+  // Exact values and inverse trig
+  const exactValues = [
+    { angle: 30, fn: 'sin', val: '0.5',    exact: '1/2',    answerAngle: 30 },
+    { angle: 60, fn: 'cos', val: '0.5',    exact: '1/2',    answerAngle: 60 },
+    { angle: 45, fn: 'sin', val: '0.707',  exact: '√2/2',   answerAngle: 45 },
+    { angle: 45, fn: 'cos', val: '0.707',  exact: '√2/2',   answerAngle: 45 },
+    { angle: 45, fn: 'tan', val: '1',      exact: '1',      answerAngle: 45 },
+    { angle: 60, fn: 'tan', val: '1.732',  exact: '√3',     answerAngle: 60 },
+  ]
+  const ev = exactValues[rand(0, exactValues.length - 1)]
+  // Inverse trig question: find angle
+  const correct = String(ev.answerAngle)
+  const { answers, correctIndex } = buildMCQ(correct, [
+    String(ev.answerAngle + 15),
+    String(ev.answerAngle - 15 > 0 ? ev.answerAngle - 15 : ev.answerAngle + 30),
+    String(90 - ev.answerAngle),
+  ])
+  return {
+    id: qid(), tier: 'Y10', type: 'trigonometry', difficulty: 'gold',
+    questionText: `Find x° if ${ev.fn}(x°) = ${ev.val}, where 0 ≤ x ≤ 90°`,
+    answers, correctIndex,
+    explanation: `${ev.fn}⁻¹(${ev.val}) = ${ev.answerAngle}°. Exact value: ${ev.fn}(${ev.answerAngle}°) = ${ev.exact}`,
+    timeLimitSeconds: 45,
+  }
+}
+
+export function generateSimultaneousGold(): Question {
+  // Word problem: two numbers summing to A, difference B
+  const x = rand(5, 15), y = rand(2, x - 1)
+  const sumXY = x + y, diffXY = x - y
+  const correct = `${x} and ${y}`
+  const { answers, correctIndex } = buildMCQ(correct, [
+    `${y} and ${x}`,
+    `${x + 1} and ${y - 1}`,
+    `${sumXY} and ${diffXY}`,
+  ])
+  return {
+    id: qid(), tier: 'Y9', type: 'simultaneous', difficulty: 'gold',
+    questionText: `Two numbers sum to ${sumXY} and their difference is ${diffXY}. Find both numbers.`,
+    answers, correctIndex,
+    explanation: `x + y = ${sumXY}, x − y = ${diffXY}. Adding: 2x = ${sumXY + diffXY} → x = ${x}. Then y = ${sumXY} − ${x} = ${y}`,
+    timeLimitSeconds: 50,
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// 2G-1: getGeneratorsForYearGroup helper
+// ─────────────────────────────────────────────────────────────
+
+type GenFn = (d: DifficultyLevel) => Question
+
+export function getGeneratorsForYearGroup(yearGroup: string): GenFn[] {
+  const base: GenFn[] = [generateAddition, generateSubtraction, generateMultiplication, generateDivision]
+  if (yearGroup === 'Y4') return [...base, generateFractions, generateDecimals]
+  if (yearGroup === 'Y5') return [...base, generateFractions, generatePercentages, generateWorded1Step]
+  if (yearGroup === 'Y6') return [
+    ...base, generateFractions, generatePercentages,
+    generateRatio, generateAlgebra, generateGeometryArea, generateStatistics,
+    generateWorded2Step, generateBodmas,
+  ]
+  // mixed: all types including Y7-Y11
+  return [
+    ...base, generateFractions, generatePercentages, generateRatio,
+    generateAlgebra, generateSequences, generateGeometryArea, generateGeometryAngles,
+    generateStatistics, generateProbability, generateWorded1Step, generateWorded2Step,
+    generateWorded3Step, generateNegativeNumbers, generateBodmas, generateFactorsPrimes,
+    generateCoordinates, generateDecimals, generateQuadratics, generateTrigonometry,
+    generateSimultaneous,
+  ]
+}

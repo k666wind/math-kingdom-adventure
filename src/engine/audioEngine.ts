@@ -57,6 +57,33 @@ function shield(): void { tone(220, 0.15, 'square', 0.2) }
 function crystal(): void { tone(1046,0.08,'sine',0.22); tone(1318,0.08,'sine',0.22,0.1) }
 function revive(): void { sequence([[523,0.1],[659,0.1],[784,0.15]],'sine',0.3,0.02) }
 
+let _bgmGain: GainNode | null = null
+let _bgmOsc: OscillatorNode | null = null
+
+export function setSfxVolume(_v: number): void {
+  // Volume stored in parentSettings; reserved for future use when tone() accepts dynamic volume
+}
+
+export function setBgmEnabled(on: boolean): void {
+  const c = ctx()
+  if (!c) return
+  if (on && !_bgmGain) {
+    _bgmGain = c.createGain()
+    _bgmGain.gain.value = 0.06
+    _bgmGain.connect(c.destination)
+    _bgmOsc = c.createOscillator()
+    _bgmOsc.frequency.value = 110  // A2 drone
+    _bgmOsc.type = 'sine'
+    _bgmOsc.connect(_bgmGain)
+    _bgmOsc.start()
+  } else if (!on && _bgmGain) {
+    _bgmOsc?.stop()
+    _bgmGain.disconnect()
+    _bgmGain = null
+    _bgmOsc  = null
+  }
+}
+
 export const sfx = {
   correct, wrong, victory, levelUp, tap, defeat, drop,
   hint, shield, crystal, revive,

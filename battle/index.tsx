@@ -68,6 +68,7 @@ const AnswerButton: React.FC<AnsProps> = ({ text, index, selected, correctIndex,
 export const BattleScreen: React.FC = () => {
   const battle       = useGameStore(s => s.battle)
   const player       = useGameStore(s => s.player)
+  const parentSettings = useGameStore(s => s.parentSettings)
   const submitAnswer   = useGameStore(s => s.submitAnswer)
   const nextQuestion   = useGameStore(s => s.nextQuestion)
   const endBattle      = useGameStore(s => s.endBattle)
@@ -90,6 +91,7 @@ export const BattleScreen: React.FC = () => {
   const [showIceFoxAuto,    setShowIceFoxAuto]    = useState(false)  // 2E-3
   const [showTimerWarning,  setShowTimerWarning]  = useState(false)  // 2E-6
   const [prevTimerReduction, setPrevTimerReduction] = useState(0)    // 2E-6
+  const [battlePhase,       setBattlePhase]       = useState<'intro'|'fighting'>('intro')  // 2G-5
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const floatKey = useRef(0)
 
@@ -97,6 +99,23 @@ export const BattleScreen: React.FC = () => {
 
   // 2E-4: Skin-aware avatar
   const activeSkin = SKINS_DATA.find(s => s.emoji === player?.activeSkin) ?? SKINS_DATA[0]
+
+  // 2G-5: Battle intro animation — auto-dismiss after 1500ms
+  useEffect(() => {
+    if (battlePhase === 'intro') {
+      const t = setTimeout(() => setBattlePhase('fighting'), 1500)
+      return () => clearTimeout(t)
+    }
+  }, [])
+
+  // 2G-7: Read aloud question when it arrives
+  useEffect(() => {
+    if (parentSettings.accessibility?.readAloud && battle?.currentQuestion && battlePhase === 'fighting') {
+      const utt = new SpeechSynthesisUtterance(battle.currentQuestion.questionText)
+      utt.rate = 0.9
+      speechSynthesis.speak(utt)
+    }
+  }, [battle?.currentQuestion?.id, battlePhase])
 
   // 2E-6: Detect timer reduction trigger
   useEffect(() => {
@@ -246,6 +265,26 @@ export const BattleScreen: React.FC = () => {
   }, [selected, battle, player, submitAnswer, nextQuestion, endBattle, robotDogUsed])
 
   if (!battle || !player) return null
+
+  // 2G-5: Battle intro animation
+  if (battlePhase === 'intro') {
+    return (
+      <div className="h-full flex items-center justify-center"
+        style={{ background: 'linear-gradient(180deg,#1a0e3a,#2D1B69)' }}>
+        <div className="flex items-center gap-6">
+          <div className="text-6xl" style={{ animation: 'slideInLeft 0.5s ease-out both' }}>
+            {activeSkin.emoji}
+          </div>
+          <div className="font-fredoka text-3xl text-white" style={{ animation: 'battleText 0.8s ease-out 0.6s both' }}>
+            ⚔️ BATTLE!
+          </div>
+          <div className="text-6xl" style={{ animation: 'slideInRight 0.5s ease-out both' }}>
+            {battle.monster.emoji}
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   const q = battle.currentQuestion
   const isVictory = battle.status === 'victory'

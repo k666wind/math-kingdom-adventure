@@ -30,6 +30,7 @@ export const MainMenu: React.FC = () => {
   const navCards = [
     { emoji:'🗺️', label:'World Map',        onClick: () => navigate('world_map') },
     { emoji:'⚡', label:'Quick Battle',     onClick: handleQuickBattle },
+    { emoji:'📝', label:'Mock Exam',        onClick: () => navigate('exam_setup') },
     { emoji:'🎯', label:'Daily Challenges', onClick: () => navigate('daily_challenges'), badge: hasClaimable },
     { emoji:'🏆', label:'Achievements',     onClick: () => navigate('achievements') },
     { emoji:'🎒', label:'Equipment',        onClick: () => navigate('collection_equipment') },

@@ -5,9 +5,10 @@ import type {
   TopicProgress, RegionId, DifficultyLevel,
   ParentSettings, QuestionResult,
   EquipmentSlot, OwnedPet, DailyChallenge, Reward, WeeklyChallenge,
+  ExamConfig, ExamSession, ExamResult,
 } from '../types'
 import { REGIONS, MONSTERS, EQUIPMENT_DATA, LEVEL_REWARDS, SKINS_DATA } from '../data/gameData'
-import { generateQuestion } from '../engine/questionGenerators'
+import { generateQuestion, getGeneratorsForYearGroup } from '../engine/questionGenerators'
 
 // ─── Helpers ─────────────────────────────────────────────────
 
@@ -41,6 +42,8 @@ const createDefaultPlayer = (name: string): Player => ({
   battleRecords: {},
   seenRegions: [],
   activeSkin: '🧙',
+  examHistory: [],           // 2G-1
+  weeklyStats: [],           // 2G-3
 })
 
 const defaultParentSettings = (): ParentSettings => ({
@@ -53,6 +56,16 @@ const defaultParentSettings = (): ParentSettings => ({
   dailyQuestionGoal: null,
   timerMode: 'normal',
   lastUpdated: new Date().toISOString(),
+  soundSettings: {
+    sfxVolume: 0.8,
+    bgmVolume: 0.3,
+    bgmEnabled: false,
+  },
+  accessibility: {
+    fontScale: 'normal',
+    highContrast: false,
+    readAloud: false,
+  },
 })
 
 const hashPin = (pin: string): string => {
@@ -193,6 +206,8 @@ interface GameStore {
   weeklyChallenge: WeeklyChallenge | null   // 2F-2
   todayStats: ReturnType<typeof defaultTodayStats>
   unlockedAchievements: string[]
+  // 2G-1: Exam state
+  examSession: ExamSession | null
 
   _unlockAch: (id: string) => void
   navigate: (screen: AppScreen, extra?: Partial<NavigationState>) => void
@@ -223,11 +238,19 @@ interface GameStore {
   importSave: (json: string) => boolean
   // 2E-1: Parent dev tools
   setPlayerLevel: (level: number) => void
+  // BUG-B: Gold/Crystal dev tools
+  setPlayerGold: (amount: number) => void
+  setPlayerCrystals: (amount: number) => void
   // 2E-7: Equipment upgrade
   upgradeItem: (itemId: string) => boolean
   // 2F-2: Weekly challenge
   claimWeeklyChallenge: () => void
   refreshWeeklyChallenge: () => void
+  // 2G-1: Exam actions
+  startExam: (config: ExamConfig) => void
+  submitExamAnswer: (questionIndex: number, selectedIndex: number) => void
+  finishExam: () => ExamResult
+  clearExam: () => void
 }
 
 // ─── Store ───────────────────────────────────────────────────
@@ -247,6 +270,7 @@ export const useGameStore = create<GameStore>()(
       weeklyChallenge: null,
       todayStats: defaultTodayStats(),
       unlockedAchievements: [],
+      examSession: null,
 
       _unlockAch: (id: string) =>
         set(s => s.unlockedAchievements.includes(id) ? {} : { unlockedAchievements: [...s.unlockedAchievements, id] }),
@@ -282,41 +306,65 @@ export const useGameStore = create<GameStore>()(
           const yesterday = new Date()
           yesterday.setDate(yesterday.getDate() - 1)
           const yesterdayStr = yesterday.toISOString().slice(0, 10)
-          set(s => ({
-            dailyChallenges: buildDailyChallenges(s.player?.level ?? 1),
-            todayStats: defaultTodayStats(),
-            streak: {
-              count: s.streak.lastDate === yesterdayStr ? s.streak.count + 1 : 1,
-              lastDate: today,
-            },
-          }))
+          set(s => {
+            // 2G-3: Append yesterday's stats to weeklyStats
+            const prevStats = s.player?.weeklyStats ?? []
+            const yesterdayStats = {
+              date: yesterdayStr,
+              correct: s.todayStats.questionsCorrect,
+              attempted: s.todayStats.questionsCorrect + 0, // will be total if tracked
+            }
+            const newWeeklyStats = [...prevStats, yesterdayStats]
+              .filter(ws => ws.date !== today)
+              .slice(-14)
+            return {
+              dailyChallenges: buildDailyChallenges(s.player?.level ?? 1),
+              todayStats: defaultTodayStats(),
+              streak: {
+                count: s.streak.lastDate === yesterdayStr ? s.streak.count + 1 : 1,
+                lastDate: today,
+              },
+              player: s.player ? { ...s.player, weeklyStats: newWeeklyStats } : null,
+            }
+          })
         }
       },
 
-      // ── 2E-1: Parent dev tool — set player level ─────────────
-      // BUG-2 fix: unlock all regions/pets up to the target level
+      // ── 2E-1 / BUG-A: Parent dev tool — set player level ────
+      // Rebuilds unlocked regions from scratch to handle lowering level
       setPlayerLevel: (level) => set(s => {
         if (!s.player) return {}
-        const clampedLevel = Math.max(1, Math.min(50, level))
-        let newPlayer: Player = {
-          ...s.player,
-          level: clampedLevel,
-          exp: 0,
-          expToNextLevel: clampedLevel * 100,
-        }
-        for (let lvl = 1; lvl <= clampedLevel; lvl++) {
-          const rewards = LEVEL_REWARDS[lvl] ?? []
-          for (const r of rewards) {
-            if (r.type === 'region_unlock' && !newPlayer.unlockedRegions.includes(r.id as RegionId)) {
-              newPlayer = { ...newPlayer, unlockedRegions: [...newPlayer.unlockedRegions, r.id as RegionId] }
-            }
-            if (r.type === 'pet' && !newPlayer.ownedPets.includes(r.id)) {
-              newPlayer = { ...newPlayer, ownedPets: [...newPlayer.ownedPets, r.id] }
-            }
+        const clamped = Math.max(1, Math.min(50, level))
+        let newRegions: RegionId[] = ['greenleaf_forest']
+        let newPets = [...s.player.ownedPets]
+        for (let lvl = 1; lvl <= clamped; lvl++) {
+          for (const r of LEVEL_REWARDS[lvl] ?? []) {
+            if (r.type === 'region_unlock' && !newRegions.includes(r.id as RegionId))
+              newRegions.push(r.id as RegionId)
+            if (r.type === 'pet' && !newPets.includes(r.id))
+              newPets.push(r.id)
           }
         }
-        return { player: newPlayer }
+        return {
+          player: {
+            ...s.player,
+            level: clamped,
+            exp: 0,
+            expToNextLevel: clamped * 100,
+            unlockedRegions: newRegions,
+            ownedPets: newPets,
+          },
+        }
       }),
+
+      // ── BUG-B: Gold / Crystal dev tools ─────────────────────
+      setPlayerGold: (amount) => set(s => ({
+        player: s.player ? { ...s.player, gold: Math.max(0, amount) } : null,
+      })),
+
+      setPlayerCrystals: (amount) => set(s => ({
+        player: s.player ? { ...s.player, crystals: Math.max(0, amount) } : null,
+      })),
 
       // ── Start battle ────────────────────────────────────────
       startBattle: (regionId, battleId) => {
@@ -528,6 +576,8 @@ export const useGameStore = create<GameStore>()(
           if (q.type === 'quadratics' && newConsec >= 5) _unlockAch('quadratics_streak')
           // 2E-11: trig gold
           if (q.type === 'trigonometry' && newTp.difficulty === 'gold') _unlockAch('trig_first_gold')
+          // 2G-4: topic_ace — 10 consecutive correct on same topic
+          if (newConsec >= 10) _unlockAch('topic_ace')
         }
         // 2E-11: full pet slots
         if (player.activePets.length >= 3) _unlockAch('full_pet_slots')
@@ -701,6 +751,15 @@ export const useGameStore = create<GameStore>()(
             if (_fp.level >= 20)                                 _unlockAch('level20')
             if (_fp.ownedPets.length >= 1)                      _unlockAch('pet1')
             if (Object.values(_fp.equippedItems).some(Boolean)) _unlockAch('equip1')
+            // 2G-4: Tower achievements
+            if (battle.regionId === 'scholars_tower' && battle.battleId === 'st_5')    _unlockAch('tower_floor5')
+            if (battle.regionId === 'scholars_tower' && battle.battleId === 'st_boss') _unlockAch('tower_complete')
+            // 2G-4: All regions unlocked
+            const ALL_REGIONS: RegionId[] = ['greenleaf_forest','shadowbat_caverns','number_castle','fraction_volcano','percentage_peaks','algebra_ocean','geometry_fortress','shadow_lair','scholars_tower']
+            if (ALL_REGIONS.every(r => _fp.unlockedRegions.includes(r))) _unlockAch('all_regions')
+            // 2G-4: Pet max level
+            const updatedOwnedPetsCheck = get().ownedPets
+            if (Object.values(updatedOwnedPetsCheck).some(p => p.level >= 10)) _unlockAch('pet_max')
           }
           if (get().streak.count >= 7) _unlockAch('streak7')
 
@@ -734,6 +793,7 @@ export const useGameStore = create<GameStore>()(
           } : null,
           weeklyChallenge: s.weeklyChallenge ? { ...s.weeklyChallenge, isClaimed: true } : null,
         }))
+        get()._unlockAch('weekly_claim') // 2G-4
       },
 
       // ── Claim daily challenge reward ─────────────────────────
@@ -943,7 +1003,6 @@ export const useGameStore = create<GameStore>()(
         if (!player.ownedEquipment.includes(itemId)) return false
         const item = EQUIPMENT_DATA.find(e => e.id === itemId)
         if (!item) return false
-        // Track upgrade levels separately on player (using a map)
         const upgrades = (player as any).itemUpgrades as Record<string,number> ?? {}
         const curUpgrade = upgrades[itemId] ?? 0
         if (curUpgrade >= 5) return false
@@ -952,16 +1011,125 @@ export const useGameStore = create<GameStore>()(
         set(s => {
           if (!s.player) return {}
           const prevUpgrades = (s.player as any).itemUpgrades as Record<string,number> ?? {}
-          return {
-            player: {
-              ...s.player,
-              gold: s.player.gold - cost,
-              itemUpgrades: { ...prevUpgrades, [itemId]: (prevUpgrades[itemId] ?? 0) + 1 },
-            } as any,
+          const newUpgradeLevel = (prevUpgrades[itemId] ?? 0) + 1
+          let newPlayer = {
+            ...s.player,
+            gold: s.player.gold - cost,
+            itemUpgrades: { ...prevUpgrades, [itemId]: newUpgradeLevel },
+          } as any
+          // BUG-C: Apply +2 stat bonus if item is currently equipped
+          const isEquipped = Object.values(s.player.equippedItems).includes(itemId)
+          if (isEquipped) {
+            if (item.stats.attack)  newPlayer.attack  += 2
+            if (item.stats.defence) newPlayer.defence += 2
+            if (item.stats.hp) {
+              newPlayer.maxHp += 2
+              newPlayer.hp = Math.min(newPlayer.hp + 2, newPlayer.maxHp)
+            }
           }
+          // 2G-4: upgrade5 achievement
+          if (newUpgradeLevel >= 5) get()._unlockAch('upgrade5')
+          return { player: newPlayer }
         })
         return true
       },
+
+      // ── 2G-1: Mock Exam ─────────────────────────────────────
+      startExam: (config) => {
+        const generators = getGeneratorsForYearGroup(config.yearGroup)
+        const questions = []
+        for (let i = 0; i < config.questionCount; i++) {
+          const gen = generators[i % generators.length]
+          const diff = (['bronze','silver','gold'] as const)[Math.floor(i / 8) % 3]
+          questions.push(gen(diff))
+        }
+        set({
+          examSession: {
+            config,
+            questions,
+            answers: new Array(config.questionCount).fill(null),
+            flagged: new Array(config.questionCount).fill(false),
+            currentIndex: 0,
+            startedAt: new Date().toISOString(),
+            finishedAt: null,
+            status: 'active',
+          },
+          nav: { screen: 'exam_active' },
+        })
+      },
+
+      submitExamAnswer: (questionIndex, selectedIndex) => {
+        set(s => {
+          if (!s.examSession) return {}
+          const newAnswers = [...s.examSession.answers]
+          newAnswers[questionIndex] = selectedIndex
+          const nextIndex = Math.min(questionIndex + 1, s.examSession.questions.length - 1)
+          return {
+            examSession: {
+              ...s.examSession,
+              answers: newAnswers,
+              currentIndex: nextIndex,
+            },
+          }
+        })
+      },
+
+      finishExam: () => {
+        const { examSession } = get()
+        if (!examSession) throw new Error('No exam session')
+        const finishedAt = new Date().toISOString()
+        const startMs = new Date(examSession.startedAt).getTime()
+        const timeTakenSeconds = Math.floor((Date.now() - startMs) / 1000)
+
+        const topicBreakdown: Record<string, { attempted: number; correct: number }> = {}
+        let correctAnswers = 0
+
+        examSession.questions.forEach((q, i) => {
+          const selected = examSession.answers[i]
+          const isCorrect = selected !== null && selected === q.correctIndex
+          if (isCorrect) correctAnswers++
+          const key = q.type
+          if (!topicBreakdown[key]) topicBreakdown[key] = { attempted: 0, correct: 0 }
+          topicBreakdown[key].attempted++
+          if (isCorrect) topicBreakdown[key].correct++
+        })
+
+        const accuracy = Math.round((correctAnswers / examSession.config.questionCount) * 100)
+
+        const result: ExamResult = {
+          id: `exam_${Date.now()}`,
+          config: examSession.config,
+          totalQuestions: examSession.config.questionCount,
+          correctAnswers,
+          accuracy,
+          timeTakenSeconds,
+          topicBreakdown,
+          date: finishedAt.slice(0, 10),
+        }
+
+        set(s => {
+          const prevHistory = s.player?.examHistory ?? []
+          const newHistory = [result, ...prevHistory].slice(0, 10)
+          const goldBonus = correctAnswers * 5
+          return {
+            examSession: { ...s.examSession!, finishedAt, status: 'completed' },
+            player: s.player ? {
+              ...s.player,
+              examHistory: newHistory,
+              gold: s.player.gold + goldBonus,
+            } : null,
+            nav: { screen: 'exam_results' },
+          }
+        })
+
+        // 2G-4: exam achievements
+        if (accuracy >= 80) get()._unlockAch('exam_pass')
+        if (accuracy >= 100) get()._unlockAch('exam_perfect')
+
+        return result
+      },
+
+      clearExam: () => set({ examSession: null }),
 
       // ── Parent ───────────────────────────────────────────────
       setParentPin: (pin) =>
@@ -1000,6 +1168,13 @@ export const useGameStore = create<GameStore>()(
           if (!data.player || !data.player.name) return false
           // Ensure new fields exist
           if (!data.player.ownedSkins) data.player.ownedSkins = ['wizard']
+          if (!data.player.examHistory) data.player.examHistory = []
+          if (!data.player.weeklyStats) data.player.weeklyStats = []
+          // Ensure parentSettings has new fields
+          if (data.parentSettings) {
+            if (!data.parentSettings.soundSettings) data.parentSettings.soundSettings = defaultParentSettings().soundSettings
+            if (!data.parentSettings.accessibility) data.parentSettings.accessibility = defaultParentSettings().accessibility
+          }
           set({
             player:              data.player,
             topicProgress:       data.topicProgress  ?? {},
@@ -1028,6 +1203,7 @@ export const useGameStore = create<GameStore>()(
         weeklyChallenge:     s.weeklyChallenge,
         todayStats:          s.todayStats,
         unlockedAchievements:s.unlockedAchievements,
+        examSession:         s.examSession,
       }),
     }
   )

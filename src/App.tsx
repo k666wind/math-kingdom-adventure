@@ -10,6 +10,7 @@ import { ShopScreen } from './components/shop'
 import { DailyChallengesScreen } from './components/challenges'
 import { AchievementsScreen } from './components/achievements'
 import { ParentPinScreen, ParentDashboard } from './components/parent'
+import { ExamSetupScreen, ExamActiveScreen, ExamResultsScreen } from './components/exam'
 
 export default function App() {
   const screen = useGameStore(s => s.nav.screen)
@@ -40,6 +41,9 @@ export default function App() {
     }
   }, [screen, player?.totalPlayTimeSeconds, parentSettings.dailyTimeLimitMinutes])
 
+  // 2G-7: Font scale class
+  const fontScale = parentSettings.accessibility?.fontScale ?? 'normal'
+
   const screens: Record<string, React.ReactNode> = {
     splash:               <SplashScreen />,
     onboarding_welcome:   <WelcomeScreen />,
@@ -56,6 +60,10 @@ export default function App() {
     achievements:         <AchievementsScreen />,
     parent_pin:           <ParentPinScreen />,
     parent_dashboard:     <ParentDashboard />,
+    // 2G-1: Exam screens
+    exam_setup:           <ExamSetupScreen />,
+    exam_active:          <ExamActiveScreen />,
+    exam_results:         <ExamResultsScreen />,
   }
 
   // 2F-6: Time limit reached screen
@@ -64,7 +72,7 @@ export default function App() {
     ['battle', 'world_map', 'region_detail'].includes(screen)
 
   return (
-    <div className="w-full h-full overflow-hidden relative">
+    <div className={`w-full h-full overflow-hidden relative font-scale-${fontScale}`}>
       {/* 2F-11: Offline banner */}
       {!isOnline && (
         <div className="fixed top-0 left-0 right-0 z-50 text-center py-1 font-nunito text-xs"

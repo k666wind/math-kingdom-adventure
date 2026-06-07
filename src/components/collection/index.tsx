@@ -164,14 +164,24 @@ export const CollectionEquipment: React.FC = () => {
             {/* Item stats */}
             <div className="rounded-xl p-3 mb-3" style={{ background: 'rgba(45,27,105,0.06)' }}>
               <p className="font-nunito text-xs font-bold mb-2" style={{ color: '#555' }}>Item Stats</p>
-              {Object.entries(detail.stats).map(([k, v]) => v ? (
-                <div key={k} className="flex justify-between py-1">
-                  <span className="font-nunito text-sm" style={{ color: '#666' }}>
-                    {STAT_LABELS[k]?.icon ?? ''} {STAT_LABELS[k]?.label ?? k}
-                  </span>
-                  <span className="font-nunito text-sm font-bold" style={{ color: '#2D1B69' }}>+{v}</span>
-                </div>
-              ) : null)}
+              {(() => {
+                const upgrades = (player as any).itemUpgrades as Record<string,number> ?? {}
+                const curUpgrade = upgrades[detail.id] ?? 0
+                const upgradeBonus = curUpgrade * 2
+                return Object.entries(detail.stats).map(([k, v]) => v ? (
+                  <div key={k} className="flex justify-between py-1">
+                    <span className="font-nunito text-sm" style={{ color: '#666' }}>
+                      {STAT_LABELS[k]?.icon ?? ''} {STAT_LABELS[k]?.label ?? k}
+                    </span>
+                    <span className="font-nunito text-sm font-bold" style={{ color: '#2D1B69' }}>
+                      +{v}
+                      {curUpgrade > 0 && (
+                        <span style={{ color: '#6BCB77' }}> (+{upgradeBonus})</span>
+                      )}
+                    </span>
+                  </div>
+                ) : null)
+              })()}
             </div>
 
             {/* 2D-2: Stat diff preview — only for unequipped items */}

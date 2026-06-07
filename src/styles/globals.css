@@ -80,3 +80,13 @@
 .scroll-y::-webkit-scrollbar { display: none; }
 .hp-bar-fill    { transition: width 0.6s ease; }
 .timer-bar-fill { transition: width 1s linear; }
+
+/* 2G-5: Battle intro keyframes */
+@keyframes slideInLeft  { from { transform:translateX(-100%); opacity:0 } to { transform:translateX(0); opacity:1 } }
+@keyframes slideInRight { from { transform:translateX(100%);  opacity:0 } to { transform:translateX(0); opacity:1 } }
+@keyframes battleText   { 0% { opacity:0; transform:scale(0.5) } 60% { opacity:1; transform:scale(1.2) } 100% { opacity:1; transform:scale(1) } }
+
+/* 2G-7: Font scale classes */
+.font-scale-normal  { font-size: 100%; }
+.font-scale-large   { font-size: 112%; }
+.font-scale-xlarge  { font-size: 125%; }
