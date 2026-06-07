@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react'
 import { useGameStore } from '../../store/gameStore'
-import type { DailyChallenge, WeeklyChallenge } from '../../types'
+import type { WeeklyChallenge } from '../../types'
 
 const CHALLENGE_EMOJI: Record<string, string> = {
   questions_correct: '📝',
