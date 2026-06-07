@@ -4,7 +4,7 @@ import type {
   Player, BattleState, NavigationState, AppScreen,
   TopicProgress, RegionId, DifficultyLevel,
   ParentSettings, QuestionResult,
-  EquipmentSlot, OwnedPet, DailyChallenge, Reward,
+  EquipmentSlot, OwnedPet, DailyChallenge, Reward, WeeklyChallenge,
 } from '../types'
 import { REGIONS, MONSTERS, EQUIPMENT_DATA, LEVEL_REWARDS, SKINS_DATA } from '../data/gameData'
 import { generateQuestion } from '../engine/questionGenerators'
@@ -110,16 +110,53 @@ const processLevelUp = (player: Player): { player: Player; levelUps: LevelUpResu
   return { player: p, levelUps }
 }
 
+// ─── Weekly challenge generator ───────────────────────────────
+
+const getMondayISO = (): string => {
+  const d = new Date()
+  const day = d.getDay()
+  const diff = (day === 0 ? -6 : 1 - day)
+  d.setDate(d.getDate() + diff)
+  return d.toISOString().slice(0, 10)
+}
+
+const WEEKLY_TEMPLATES = [
+  { type: 'total_correct'   as const, target: 100, description: 'Answer 100 questions correctly this week', reward: { crystals: 3, gold: 200 } },
+  { type: 'bosses_defeated' as const, target: 5,   description: 'Defeat 5 bosses this week',               reward: { crystals: 5, gold: 150 } },
+  { type: 'topic_mastery'   as const, target: 20,  description: 'Answer 20 questions correctly in any topic', reward: { crystals: 4, gold: 100 } },
+]
+
+const buildWeeklyChallenge = (): WeeklyChallenge => {
+  const weekStart = getMondayISO()
+  const template  = WEEKLY_TEMPLATES[Math.floor(Math.random() * WEEKLY_TEMPLATES.length)]
+  return {
+    id: `weekly_${weekStart}`,
+    weekStart,
+    description: template.description,
+    type: template.type,
+    targetValue: template.target,
+    currentProgress: 0,
+    isCompleted: false,
+    isClaimed: false,
+    reward: template.reward,
+  }
+}
+
 // ─── Daily challenge generator ────────────────────────────────
 
 const buildDailyChallenges = (level: number): DailyChallenge[] => {
   const date = todayISO()
   const comboTarget = level >= 10 ? 10 : 5
-  return [
+  // 2F-2: expanded challenge types — rotate through a pool
+  const pool: DailyChallenge[] = [
     { id:`${date}_c1`, date, type:'questions_correct', description:'Answer 20 questions correctly today', targetValue:20, currentProgress:0, isCompleted:false, isClaimed:false, reward:{ gold:50 } },
     { id:`${date}_c2`, date, type:'monsters_defeated',  description:'Defeat 3 monsters today',              targetValue:3,  currentProgress:0, isCompleted:false, isClaimed:false, reward:{ crystals:1 } },
     { id:`${date}_c3`, date, type:'combo_reached',      description:`Keep a combo of ${comboTarget} or more`, targetValue:comboTarget, currentProgress:0, isCompleted:false, isClaimed:false, reward:{ exp:100 } },
+    { id:`${date}_c4`, date, type:'perfect_battle',     description:'Complete a battle with no wrong answers', targetValue:1, currentProgress:0, isCompleted:false, isClaimed:false, reward:{ crystals:1 } },
+    { id:`${date}_c5`, date, type:'topic_specific',     description:'Answer 10 fractions questions correctly', targetValue:10, currentProgress:0, isCompleted:false, isClaimed:false, reward:{ gold:80 }, topicFilter:'fractions' },
   ]
+  // Pick first 3 deterministically (could randomise in future)
+  return pool.slice(0, 3)
 }
 
 const defaultTodayStats = () => ({
@@ -153,6 +190,7 @@ interface GameStore {
   pendingLevelUps: LevelUpResult[]
   streak: { count: number; lastDate: string }
   dailyChallenges: DailyChallenge[]
+  weeklyChallenge: WeeklyChallenge | null   // 2F-2
   todayStats: ReturnType<typeof defaultTodayStats>
   unlockedAchievements: string[]
 
@@ -187,6 +225,9 @@ interface GameStore {
   setPlayerLevel: (level: number) => void
   // 2E-7: Equipment upgrade
   upgradeItem: (itemId: string) => boolean
+  // 2F-2: Weekly challenge
+  claimWeeklyChallenge: () => void
+  refreshWeeklyChallenge: () => void
 }
 
 // ─── Store ───────────────────────────────────────────────────
@@ -203,6 +244,7 @@ export const useGameStore = create<GameStore>()(
       pendingLevelUps: [],
       streak: { count: 0, lastDate: '' },
       dailyChallenges: [],
+      weeklyChallenge: null,
       todayStats: defaultTodayStats(),
       unlockedAchievements: [],
 
@@ -223,6 +265,7 @@ export const useGameStore = create<GameStore>()(
           player,
           nav: { screen: 'main_menu' },
           dailyChallenges: buildDailyChallenges(player.level),
+          weeklyChallenge: buildWeeklyChallenge(),
           todayStats: defaultTodayStats(),
           unlockedAchievements: [],
         })
@@ -251,16 +294,28 @@ export const useGameStore = create<GameStore>()(
       },
 
       // ── 2E-1: Parent dev tool — set player level ─────────────
+      // BUG-2 fix: unlock all regions/pets up to the target level
       setPlayerLevel: (level) => set(s => {
         if (!s.player) return {}
-        return {
-          player: {
-            ...s.player,
-            level: Math.max(1, Math.min(50, level)),
-            exp: 0,
-            expToNextLevel: level * 100,
+        const clampedLevel = Math.max(1, Math.min(50, level))
+        let newPlayer: Player = {
+          ...s.player,
+          level: clampedLevel,
+          exp: 0,
+          expToNextLevel: clampedLevel * 100,
+        }
+        for (let lvl = 1; lvl <= clampedLevel; lvl++) {
+          const rewards = LEVEL_REWARDS[lvl] ?? []
+          for (const r of rewards) {
+            if (r.type === 'region_unlock' && !newPlayer.unlockedRegions.includes(r.id as RegionId)) {
+              newPlayer = { ...newPlayer, unlockedRegions: [...newPlayer.unlockedRegions, r.id as RegionId] }
+            }
+            if (r.type === 'pet' && !newPlayer.ownedPets.includes(r.id)) {
+              newPlayer = { ...newPlayer, ownedPets: [...newPlayer.ownedPets, r.id] }
+            }
           }
         }
+        return { player: newPlayer }
       }),
 
       // ── Start battle ────────────────────────────────────────
@@ -417,8 +472,24 @@ export const useGameStore = create<GameStore>()(
               const newProg = Math.max(c.currentProgress, newCombo)
               return { ...c, currentProgress: newProg, isCompleted: newProg >= c.targetValue }
             }
+            // 2F-2: topic_specific challenge tracking
+            if (c.type === 'topic_specific' && correct && c.topicFilter === q.type) {
+              const newProg = c.currentProgress + 1
+              return { ...c, currentProgress: newProg, isCompleted: newProg >= c.targetValue }
+            }
             return c
           })
+          // 2F-2: weekly challenge progress (total_correct + topic_mastery)
+          let updatedWeekly = s.weeklyChallenge
+          if (updatedWeekly && !updatedWeekly.isCompleted && correct) {
+            if (updatedWeekly.type === 'total_correct') {
+              const newProg = updatedWeekly.currentProgress + 1
+              updatedWeekly = { ...updatedWeekly, currentProgress: newProg, isCompleted: newProg >= updatedWeekly.targetValue }
+            } else if (updatedWeekly.type === 'topic_mastery') {
+              const newProg = updatedWeekly.currentProgress + 1
+              updatedWeekly = { ...updatedWeekly, currentProgress: newProg, isCompleted: newProg >= updatedWeekly.targetValue }
+            }
+          }
           const updatedStats = {
             ...s.todayStats,
             questionsCorrect: s.todayStats.questionsCorrect + (correct ? 1 : 0),
@@ -441,6 +512,7 @@ export const useGameStore = create<GameStore>()(
             } : null,
             topicProgress: { ...s.topicProgress, [tpKey]: newTp },
             dailyChallenges: updatedChallenges,
+            weeklyChallenge: updatedWeekly,
             todayStats: updatedStats,
           }
         })
@@ -567,6 +639,22 @@ export const useGameStore = create<GameStore>()(
 
           newPlayer = { ...newPlayer, hp: newPlayer.maxHp }
 
+          // 2F-6: Grant pet EXP to active pets
+          const PET_EXP_PER_LEVEL = 50
+          const petExpGain = Math.max(1, Math.floor(battle.monster.expReward * 0.3))
+          const updatedOwnedPets = { ...get().ownedPets }
+          for (const petId of newPlayer.activePets) {
+            const owned = updatedOwnedPets[petId] ?? { petId, level: 1, exp: 0, happiness: 100, isActive: true }
+            let petLevel = owned.level
+            let petExp   = owned.exp + petExpGain
+            // Level up pet if enough EXP (cap at maxLevel — using 10 as default max)
+            while (petExp >= PET_EXP_PER_LEVEL && petLevel < 10) {
+              petExp   -= PET_EXP_PER_LEVEL
+              petLevel += 1
+            }
+            updatedOwnedPets[petId] = { ...owned, level: petLevel, exp: petExp, isActive: true }
+          }
+
           const { player: levelled, levelUps } = processLevelUp(newPlayer)
 
           set(s => {
@@ -576,13 +664,25 @@ export const useGameStore = create<GameStore>()(
                 const newProg = c.currentProgress + 1
                 return { ...c, currentProgress: newProg, isCompleted: newProg >= c.targetValue }
               }
+              // 2F-2: perfect_battle challenge
+              if (c.type === 'perfect_battle' && isPerfect) {
+                return { ...c, currentProgress: 1, isCompleted: true }
+              }
               return c
             })
+            // 2F-2: weekly bosses_defeated tracking
+            let updatedWeekly = s.weeklyChallenge
+            if (updatedWeekly && !updatedWeekly.isCompleted && updatedWeekly.type === 'bosses_defeated' && battle.monster.isBoss) {
+              const newProg = updatedWeekly.currentProgress + 1
+              updatedWeekly = { ...updatedWeekly, currentProgress: newProg, isCompleted: newProg >= updatedWeekly.targetValue }
+            }
             return {
               player: levelled,
               battle: s.battle ? { ...s.battle, status: 'victory', drops } : null,
               pendingLevelUps: [...s.pendingLevelUps, ...levelUps],
               dailyChallenges: updatedChallenges,
+              weeklyChallenge: updatedWeekly,
+              ownedPets: updatedOwnedPets,   // 2F-6: pet EXP gains
               todayStats: {
                 ...s.todayStats,
                 monstersDefeated: s.todayStats.monstersDefeated + 1,
@@ -612,6 +712,30 @@ export const useGameStore = create<GameStore>()(
         }
       },
 
+      // ── 2F-2: Weekly challenge actions ───────────────────────
+      refreshWeeklyChallenge: () => {
+        const { weeklyChallenge } = get()
+        const weekStart = getMondayISO()
+        if (!weeklyChallenge || weeklyChallenge.weekStart !== weekStart) {
+          set({ weeklyChallenge: buildWeeklyChallenge() })
+        }
+      },
+
+      claimWeeklyChallenge: () => {
+        const { weeklyChallenge, player } = get()
+        if (!weeklyChallenge || !weeklyChallenge.isCompleted || weeklyChallenge.isClaimed || !player) return
+        const r = weeklyChallenge.reward
+        set(s => ({
+          player: s.player ? {
+            ...s.player,
+            gold:     s.player.gold     + (r.gold ?? 0),
+            crystals: s.player.crystals + (r.crystals ?? 0),
+            exp:      s.player.exp      + (r.exp ?? 0),
+          } : null,
+          weeklyChallenge: s.weeklyChallenge ? { ...s.weeklyChallenge, isClaimed: true } : null,
+        }))
+      },
+
       // ── Claim daily challenge reward ─────────────────────────
       claimChallenge: (challengeId) => {
         const { dailyChallenges, player } = get()
@@ -631,16 +755,22 @@ export const useGameStore = create<GameStore>()(
           if (challenge.id.includes('seven_day_streak') && newPlayer && !(newPlayer.ownedSkins ?? ['wizard']).includes('alien')) {
             newPlayer = { ...newPlayer, ownedSkins: [...(newPlayer.ownedSkins ?? ['wizard']), 'alien'] }
           }
-          // Also grant on 7-day streak achievement
           if (s.streak.count >= 7 && newPlayer && !(newPlayer.ownedSkins ?? ['wizard']).includes('alien')) {
             newPlayer = { ...newPlayer, ownedSkins: [...(newPlayer.ownedSkins ?? ['wizard']), 'alien'] }
           }
 
+          const updatedChallenges = s.dailyChallenges.map(c =>
+            c.id === challengeId ? { ...c, isClaimed: true } : c
+          )
+          // 2F-2: Streak bonus — all 3 daily challenges claimed → +1 crystal
+          const allDone = updatedChallenges.every(c => c.isClaimed)
+          if (allDone && newPlayer) {
+            newPlayer = { ...newPlayer, crystals: newPlayer.crystals + 1 }
+          }
+
           return {
             player: newPlayer,
-            dailyChallenges: s.dailyChallenges.map(c =>
-              c.id === challengeId ? { ...c, isClaimed: true } : c
-            ),
+            dailyChallenges: updatedChallenges,
           }
         })
       },
@@ -671,15 +801,20 @@ export const useGameStore = create<GameStore>()(
           if (!item || item.slot !== slot) return s
           const oldId   = s.player.equippedItems[slot]
           const oldItem = oldId ? EQUIPMENT_DATA.find(e => e.id === oldId) : null
+          const upgrades = (s.player as any).itemUpgrades as Record<string,number> ?? {}
+          const oldUpgradeBonus = (upgrades[oldId ?? ''] ?? 0) * 2
+          const newUpgradeBonus = (upgrades[itemId] ?? 0) * 2
           let p = { ...s.player, equippedItems: { ...s.player.equippedItems, [slot]: itemId } }
-          if (oldItem?.stats.hp)         { p.maxHp   -= oldItem.stats.hp }
-          if (oldItem?.stats.attack)       p.attack   -= oldItem.stats.attack
-          if (oldItem?.stats.defence)      p.defence  -= oldItem.stats.defence
+          // Remove old item stats (including upgrade bonus)
+          if (oldItem?.stats.hp)         { p.maxHp   -= oldItem.stats.hp + (oldItem.stats.hp > 0 ? oldUpgradeBonus : 0) }
+          if (oldItem?.stats.attack)       p.attack   -= oldItem.stats.attack + oldUpgradeBonus
+          if (oldItem?.stats.defence)      p.defence  -= oldItem.stats.defence + oldUpgradeBonus
           if (oldItem?.stats.speedBonus)   p.speedBonus -= oldItem.stats.speedBonus
           if (oldItem?.stats.luckBonus)    p.luckBonus  -= oldItem.stats.luckBonus
-          if (item.stats.hp)  { p.maxHp += item.stats.hp; p.hp = Math.min(p.hp + item.stats.hp, p.maxHp) }
-          if (item.stats.attack)     p.attack     += item.stats.attack
-          if (item.stats.defence)    p.defence    += item.stats.defence
+          // Apply new item stats (including upgrade bonus)
+          if (item.stats.hp)  { p.maxHp += item.stats.hp + newUpgradeBonus; p.hp = Math.min(p.hp + item.stats.hp + newUpgradeBonus, p.maxHp) }
+          if (item.stats.attack)     p.attack     += item.stats.attack + newUpgradeBonus
+          if (item.stats.defence)    p.defence    += item.stats.defence + newUpgradeBonus
           if (item.stats.speedBonus) p.speedBonus += item.stats.speedBonus
           if (item.stats.luckBonus)  p.luckBonus  += item.stats.luckBonus
           return { player: p }
@@ -808,7 +943,6 @@ export const useGameStore = create<GameStore>()(
         if (!player.ownedEquipment.includes(itemId)) return false
         const item = EQUIPMENT_DATA.find(e => e.id === itemId)
         if (!item) return false
-        const currentLevel = item.upgradeLevel  // base item; in practice upgradeLevel is stored on item data
         // Track upgrade levels separately on player (using a map)
         const upgrades = (player as any).itemUpgrades as Record<string,number> ?? {}
         const curUpgrade = upgrades[itemId] ?? 0
@@ -891,6 +1025,7 @@ export const useGameStore = create<GameStore>()(
         parentSettings:      s.parentSettings,
         streak:              s.streak,
         dailyChallenges:     s.dailyChallenges,
+        weeklyChallenge:     s.weeklyChallenge,
         todayStats:          s.todayStats,
         unlockedAchievements:s.unlockedAchievements,
       }),

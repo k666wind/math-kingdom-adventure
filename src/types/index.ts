@@ -71,7 +71,7 @@ export interface EquippedItems {
 export type RegionId =
   |'greenleaf_forest'|'shadowbat_caverns'|'number_castle'
   |'fraction_volcano'|'percentage_peaks'|'algebra_ocean'
-  |'geometry_fortress'|'shadow_lair'
+  |'geometry_fortress'|'shadow_lair'|'scholars_tower'
 
 export interface Region {
   id: RegionId
@@ -249,6 +249,19 @@ export interface DailyChallenge {
   isClaimed: boolean
   reward: Reward
   topicFilter?: QuestionType
+}
+
+// 2F-2: Weekly challenge
+export interface WeeklyChallenge {
+  id: string
+  weekStart: string          // ISO Monday date
+  description: string
+  type: 'total_correct' | 'bosses_defeated' | 'topic_mastery' | 'streak'
+  targetValue: number
+  currentProgress: number
+  isCompleted: boolean
+  isClaimed: boolean
+  reward: Reward
 }
 
 export interface Achievement {

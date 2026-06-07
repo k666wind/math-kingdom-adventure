@@ -314,19 +314,26 @@ export function generatePercentages(diff: DifficultyLevel): Question {
   const nicePercentages = [10, 20, 25, 50, 75]
 
   if (diff === 'bronze') {
-    const pct = nicePercentages[rand(0, nicePercentages.length - 1)]
-    const whole = rand(1, 10) * 20
-    const correct = String((pct / 100) * whole)
-    const { answers, correctIndex } = buildMCQ(correct, [
-      String((pct / 100) * whole + 5),
-      String(whole - Number(correct)),
-      String(Number(correct) * 2),
+    // BUG-5 fix: only generate when result is a whole number
+    let pct: number, whole: number, correct: number
+    let attempts = 0
+    do {
+      pct = nicePercentages[rand(0, nicePercentages.length - 1)]
+      whole = rand(1, 10) * 20
+      correct = (pct / 100) * whole
+      attempts++
+    } while (!Number.isInteger(correct) && attempts < 20)
+    const correctStr = String(correct)
+    const { answers, correctIndex } = buildMCQ(correctStr, [
+      String(correct + 5),
+      String(whole - correct),
+      String(correct * 2),
     ])
     return {
       id: qid(), tier: 'Y5', type: 'percentages', difficulty: diff,
       questionText: `What is ${pct}% of ${whole}?`,
       answers, correctIndex,
-      explanation: `${pct}% of ${whole} = ${whole} × ${pct}/100 = ${correct}`,
+      explanation: `${pct}% of ${whole} = ${whole} × ${pct}/100 = ${correctStr}`,
       timeLimitSeconds: timeLimit('Y5', diff),
     }
   }
@@ -734,15 +741,17 @@ export function generateNegativeNumbers(diff: DifficultyLevel): Question {
   if (diff === 'bronze') {
     const a = -rand(1, 10)
     const b = rand(a + 1, 15)
-    const correct = String(b - Math.abs(a))  // distance between
-    const { answers, correctIndex } = buildMCQ(correct, [
-      String(Number(correct) + 1), String(Number(correct) - 2), String(b + Math.abs(a)),
+    // BUG-9 fix: difference between a (negative) and b = b - a (e.g. b - (-9) = b + 9)
+    const correct = b - a
+    const correctStr = String(correct)
+    const { answers, correctIndex } = buildMCQ(correctStr, [
+      String(correct - 1), String(correct + 2), String(b + a),  // b+a is common wrong answer
     ])
     return {
       id: qid(), tier: 'Y5', type: 'negative_numbers', difficulty: diff,
       questionText: `What is the difference between ${a} and ${b}?`,
       answers, correctIndex,
-      explanation: `${b} − (${a}) = ${b} + ${Math.abs(a)} = ${correct}`,
+      explanation: `${b} − (${a}) = ${b} + ${Math.abs(a)} = ${correctStr}`,
       timeLimitSeconds: timeLimit('Y5', diff),
     }
   }

@@ -101,6 +101,20 @@ export const MONSTERS: Record<string, Monster> = {
     dropTable:[{itemId:'crystal_sword',itemType:'equipment',dropChance:0.6},{itemId:'wise_owl_egg',itemType:'pet_egg',dropChance:0.35},{itemId:'crystals',itemType:'crystal',dropChance:0.8}],
     specialAbility:{ name:'Shadow Mastery', description:'Reduces timer and doubles damage at 50% HP', triggerCondition:'hp_50', effect:'reduce_timer', effectValue:8 },
   },
+  // 2F-5: Scholar's Tower monsters
+  algebra_golem:    { id:'algebra_golem',    name:'Algebra Golem',    emoji:'🔢', level:30, maxHp:300, attackDamage:40, expReward:180, goldRewardMin:60,  goldRewardMax:90,  dropTable:[], isBoss:false },
+  equation_wraith:  { id:'equation_wraith',  name:'Equation Wraith',  emoji:'📐', level:33, maxHp:340, attackDamage:44, expReward:205, goldRewardMin:68,  goldRewardMax:100, dropTable:[], isBoss:false },
+  formula_phantom:  { id:'formula_phantom',  name:'Formula Phantom',  emoji:'👻', level:35, maxHp:380, attackDamage:48, expReward:230, goldRewardMin:76,  goldRewardMax:112, dropTable:[{itemId:'crystals',itemType:'crystal',dropChance:0.3}], isBoss:false },
+  matrix_mage:      { id:'matrix_mage',      name:'Matrix Mage',      emoji:'🧮', level:37, maxHp:420, attackDamage:52, expReward:255, goldRewardMin:85,  goldRewardMax:125, dropTable:[], isBoss:false },
+  proof_golem:      { id:'proof_golem',      name:'Proof Golem',      emoji:'📜', level:39, maxHp:460, attackDamage:56, expReward:280, goldRewardMin:92,  goldRewardMax:138, dropTable:[{itemId:'crystals',itemType:'crystal',dropChance:0.35}], isBoss:false },
+  calculus_sprite:  { id:'calculus_sprite',  name:'Calculus Sprite',  emoji:'∞',  level:41, maxHp:500, attackDamage:60, expReward:305, goldRewardMin:100, goldRewardMax:150, dropTable:[], isBoss:false },
+  trig_titan:       { id:'trig_titan',       name:'Trig Titan',       emoji:'📏', level:43, maxHp:545, attackDamage:65, expReward:335, goldRewardMin:110, goldRewardMax:165, dropTable:[{itemId:'crystals',itemType:'crystal',dropChance:0.4}], isBoss:false },
+  theorem_colossus: { id:'theorem_colossus', name:'Theorem Colossus', emoji:'🗿', level:45, maxHp:590, attackDamage:70, expReward:365, goldRewardMin:120, goldRewardMax:180, dropTable:[], isBoss:false },
+  calculus_dragon:  { id:'calculus_dragon',  name:'Calculus Dragon',  emoji:'🐉', level:47, maxHp:650, attackDamage:76, expReward:400, goldRewardMin:135, goldRewardMax:200, dropTable:[{itemId:'crystals',itemType:'crystal',dropChance:0.5}], isBoss:false,
+    specialAbility:{ name:'Dragon Theorem', description:'Reduces timer at 50% HP', triggerCondition:'hp_50', effect:'reduce_timer', effectValue:5 } },
+  grand_professor:  { id:'grand_professor',  name:'Grand Professor',  emoji:'🎓', level:50, maxHp:1200, attackDamage:85, expReward:800, goldRewardMin:250, goldRewardMax:350, isBoss:true,
+    dropTable:[{itemId:'crystal_sword',itemType:'equipment',dropChance:0.7},{itemId:'crystals',itemType:'crystal',dropChance:0.9}],
+    specialAbility:{ name:'Academic Supremacy', description:'Double damage on consecutive wrong answers', triggerCondition:'consecutive_wrong_2', effect:'double_damage', effectValue:2 } },
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -218,6 +232,25 @@ export const REGIONS: Region[] = [
       { id:'sl_4',    regionId:'shadow_lair', battleNumber:4, monsterId:'trig_wraith',              isBoss:false, isMiniBoss:false, questionTiers:['Y6'], questionTypes:['geometry_area','geometry_angles','statistics'] },
       { id:'sl_mb',   regionId:'shadow_lair', battleNumber:5, monsterId:'shadow_titan_mini',        isBoss:false, isMiniBoss:true,  questionTiers:['Y6'], questionTypes:['algebra','fractions','percentages','ratio','worded_3step'] },
       { id:'sl_boss', regionId:'shadow_lair', battleNumber:6, monsterId:'the_shadow_mathematician', isBoss:true,  isMiniBoss:false, questionTiers:['Y6'], questionTypes:['algebra','fractions','percentages','ratio','geometry_area','statistics','worded_3step'] },
+    ],
+  },
+  // 2F-5: Scholar's Tower (Y7-Y11, unlocked at Level 30)
+  {
+    id: 'scholars_tower', name: "Scholar's Tower",
+    description: 'A ten-floor tower of advanced mathematics for elite scholars.',
+    emoji: '🏛️', requiredLevel: 30, tiers: ['Y7','Y8','Y9','Y10','Y11'],
+    topicFocus: ['quadratics','trigonometry','simultaneous','algebra','statistics'],
+    battles: [
+      { id:'st_1',  regionId:'scholars_tower', battleNumber:1,  monsterId:'algebra_golem',    isBoss:false, isMiniBoss:false, questionTiers:['Y7'], questionTypes:['algebra','sequences'] },
+      { id:'st_2',  regionId:'scholars_tower', battleNumber:2,  monsterId:'equation_wraith',  isBoss:false, isMiniBoss:false, questionTiers:['Y7'], questionTypes:['algebra','quadratics'] },
+      { id:'st_3',  regionId:'scholars_tower', battleNumber:3,  monsterId:'formula_phantom',  isBoss:false, isMiniBoss:false, questionTiers:['Y8'], questionTypes:['quadratics','algebra'] },
+      { id:'st_4',  regionId:'scholars_tower', battleNumber:4,  monsterId:'matrix_mage',      isBoss:false, isMiniBoss:false, questionTiers:['Y8'], questionTypes:['quadratics','simultaneous'] },
+      { id:'st_5',  regionId:'scholars_tower', battleNumber:5,  monsterId:'proof_golem',      isBoss:false, isMiniBoss:false, questionTiers:['Y9'], questionTypes:['simultaneous','quadratics'] },
+      { id:'st_6',  regionId:'scholars_tower', battleNumber:6,  monsterId:'calculus_sprite',  isBoss:false, isMiniBoss:false, questionTiers:['Y9'], questionTypes:['trigonometry','simultaneous'] },
+      { id:'st_7',  regionId:'scholars_tower', battleNumber:7,  monsterId:'trig_titan',       isBoss:false, isMiniBoss:false, questionTiers:['Y10'], questionTypes:['trigonometry','quadratics'] },
+      { id:'st_8',  regionId:'scholars_tower', battleNumber:8,  monsterId:'theorem_colossus', isBoss:false, isMiniBoss:false, questionTiers:['Y10'], questionTypes:['trigonometry','simultaneous','quadratics'] },
+      { id:'st_9',  regionId:'scholars_tower', battleNumber:9,  monsterId:'calculus_dragon',  isBoss:false, isMiniBoss:false, questionTiers:['Y11'], questionTypes:['trigonometry','quadratics','simultaneous'] },
+      { id:'st_boss', regionId:'scholars_tower', battleNumber:10, monsterId:'grand_professor', isBoss:true, isMiniBoss:false, questionTiers:['Y11'], questionTypes:['quadratics','trigonometry','simultaneous','algebra','statistics'] },
     ],
   },
 ]
@@ -377,7 +410,8 @@ export const LEVEL_REWARDS: Record<number, LevelRewardEntry[]> = {
   25: [{ type:'pet', id:'baby_dragon', label:'Baby Dragon Pet' }],
   28: [{ type:'region_unlock', id:'algebra_ocean', label:'Algebra Ocean' },
        { type:'equipment_pool', pool:['dragon_fang','dragon_scale','dragon_eye','dragon_crest'], label:'Dragon Equipment!' }],
-  30: [{ type:'equipment', id:'magic_calculator_hat', label:'Calculator Hat' }],
+  30: [{ type:'equipment', id:'magic_calculator_hat', label:'Calculator Hat' },
+       { type:'region_unlock', id:'scholars_tower', label:"Scholar's Tower 🏛️" }],
   35: [{ type:'region_unlock', id:'geometry_fortress', label:'Geometry Fortress' }],
   40: [{ type:'pet', id:'robot_dog', label:'Robot Dog Pet' },
        { type:'region_unlock', id:'shadow_lair', label:"Shadow Mathematician's Lair" }],

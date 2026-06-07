@@ -3,18 +3,24 @@ import { sfx } from '../../engine/audioEngine'
 import { useGameStore } from '../../store/gameStore'
 import { SKINS_DATA } from '../../data/gameData'
 
-// ── Timer Bar ─────────────────────────────────────────────────
-const TimerBar: React.FC<{ seconds: number; total: number }> = ({ seconds, total }) => {
-  const pct = Math.max(0, (seconds / total) * 100)
-  const color = pct > 50 ? '#6BCB77' : pct > 25 ? '#FFE66D' : '#FF4D6D'
+// ── Circle Timer (2F-1) ───────────────────────────────────────
+const CircleTimer: React.FC<{ seconds: number; total: number }> = ({ seconds, total }) => {
+  const pct   = total > 0 ? seconds / total : 0
+  const r     = 28
+  const circ  = 2 * Math.PI * r
+  const dash  = circ * pct
+  const color = pct > 0.5 ? '#6BCB77' : pct > 0.25 ? '#FFE66D' : '#FF4D6D'
+  const pulse = seconds <= 5 && seconds > 0
   return (
-    <div>
-      <div className="h-2.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.15)' }}>
-        <div className="h-full rounded-full timer-bar-fill" style={{ width: `${pct}%`, background: color }} />
-      </div>
-      <div className="text-right font-nunito text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.5)' }}>
-        {seconds}s
-      </div>
+    <div className={`relative flex items-center justify-center ${pulse ? 'animate-pulse' : ''}`}
+      style={{ width: 72, height: 72, flexShrink: 0 }}>
+      <svg width="72" height="72" style={{ transform: 'rotate(-90deg)', position: 'absolute' }}>
+        <circle cx="36" cy="36" r={r} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="5" />
+        <circle cx="36" cy="36" r={r} fill="none" stroke={color} strokeWidth="5"
+          strokeDasharray={`${dash} ${circ}`} strokeLinecap="round"
+          style={{ transition: 'stroke-dasharray 0.9s linear, stroke 0.3s' }} />
+      </svg>
+      <span className="font-fredoka text-lg relative z-10" style={{ color }}>{seconds}</span>
     </div>
   )
 }
@@ -67,6 +73,7 @@ export const BattleScreen: React.FC = () => {
   const endBattle      = useGameStore(s => s.endBattle)
   const navigate       = useGameStore(s => s.navigate)
   const useFiftyFifty  = useGameStore(s => s.useFiftyFifty)
+  const startBattle    = useGameStore(s => s.startBattle)
 
   const [selected,          setSelected]          = useState<number | null>(null)
   const [timeLeft,          setTimeLeft]          = useState(0)
@@ -103,11 +110,11 @@ export const BattleScreen: React.FC = () => {
   // Reset when new question arrives
   useEffect(() => {
     if (battle?.status === 'question' && battle.currentQuestion) {
-      // 2E-6: apply timer reduction; 2E-3: time_tortoise +5s
+      // BUG-7 fix: use battle.timerBonus (includes timerMode + speedBonus) instead of player.speedBonus separately
       const timerReduce = battle.timerReduction ?? 0
       const tortoiseBonus = player?.activePets.includes('time_tortoise') ? 5 : 0
       const t = Math.max(5, (battle.currentQuestion.timeLimitSeconds ?? 15)
-        + (player?.speedBonus ?? 0)
+        + (battle.timerBonus ?? 0)   // covers timerMode + speedBonus
         + tortoiseBonus
         - timerReduce)
       setSelected(null)
@@ -130,7 +137,9 @@ export const BattleScreen: React.FC = () => {
   }, [battle?.currentQuestion?.id, battle?.status])
 
   const handleAnswer = useCallback((idx: number) => {
-    if (selected !== null || !battle || !player) return
+    // BUG-4 fix: allow timeout (-1) even if selected is already set (shouldn't happen, but safety)
+    if (selected !== null && idx !== -1) return
+    if (!battle || !player) return
     clearTimer()
 
     const q_now = battle.currentQuestion
@@ -188,7 +197,13 @@ export const BattleScreen: React.FC = () => {
     const { correct } = submitAnswer(idx)
     floatKey.current++
 
-    if (correct) {
+    if (idx === -1) {
+      // Timeout — treat as wrong, show which was correct
+      sfx.wrong()
+      setShake(true)
+      setDmgFloat({ val: '⏰ Time!', key: floatKey.current })
+      setTimeout(() => setShake(false), 500)
+    } else if (correct) {
       sfx.correct()
       setDmgFloat({ val: '⚔️ Hit!', key: floatKey.current })
       // 2E-3: healing_bunny float
@@ -344,7 +359,10 @@ export const BattleScreen: React.FC = () => {
         <p className="font-nunito text-sm mb-8" style={{ color: 'rgba(255,255,255,0.6)' }}>
           {battle.monster.name} was too strong this time.
         </p>
-        <button onClick={() => navigate('world_map')}
+        <button onClick={() => {
+          // BUG-8 fix: restart the same battle instead of going to map
+          startBattle(battle.regionId, battle.battleId)
+        }}
           className="w-full text-white font-fredoka text-lg py-4 rounded-2xl mb-3 active:scale-95 transition-transform"
           style={{ background: '#FF6B35' }}>
           Try Again 💪
@@ -467,17 +485,18 @@ export const BattleScreen: React.FC = () => {
       <div className="flex-1 flex flex-col px-4 pt-3 gap-3">
         {q ? (
           <>
-            <div className="rounded-2xl p-4" style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)' }}>
-              <div className="font-nunito text-xs uppercase tracking-wide mb-2"
-                style={{ color: 'rgba(255,255,255,0.4)' }}>
-                {q.type.replace(/_/g,' ')} · {q.difficulty}
+            <div className="flex items-center gap-3">
+              <div className="flex-1 rounded-xl px-3 py-2" style={{ background: 'rgba(255,255,255,0.06)' }}>
+                <div className="font-nunito text-xs uppercase tracking-wide mb-1"
+                  style={{ color: 'rgba(255,255,255,0.4)' }}>
+                  {q.type.replace(/_/g,' ')} · {q.difficulty}
+                </div>
+                <div className="font-fredoka text-white text-xl text-center leading-tight">
+                  {q.questionText}
+                </div>
               </div>
-              <div className="font-fredoka text-white text-xl text-center leading-tight">
-                {q.questionText}
-              </div>
+              <CircleTimer seconds={timeLeft} total={totalTime} />
             </div>
-
-            <TimerBar seconds={timeLeft} total={totalTime} />
 
             {/* Math Cat hint */}
             {showMathCatHint && q && (

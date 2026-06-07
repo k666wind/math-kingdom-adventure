@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useGameStore } from './store/gameStore'
 import { SplashScreen, WelcomeScreen, NameEntryScreen } from './components/onboarding'
 import { MainMenu } from './components/menu'
@@ -14,8 +14,31 @@ import { ParentPinScreen, ParentDashboard } from './components/parent'
 export default function App() {
   const screen = useGameStore(s => s.nav.screen)
   const refreshDailyChallenges = useGameStore(s => s.refreshDailyChallenges)
+  const player = useGameStore(s => s.player)
+  const parentSettings = useGameStore(s => s.parentSettings)
+  const navigate = useGameStore(s => s.navigate)
+
+  // 2F-11: Offline warning
+  const [isOnline, setIsOnline] = useState(navigator.onLine)
+  useEffect(() => {
+    const on  = () => setIsOnline(true)
+    const off = () => setIsOnline(false)
+    window.addEventListener('online',  on)
+    window.addEventListener('offline', off)
+    return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off) }
+  }, [])
 
   useEffect(() => { refreshDailyChallenges() }, [])
+
+  // BUG-6: Enforce daily time limit — redirect away from battle if over limit
+  useEffect(() => {
+    if (screen === 'battle' && player && parentSettings.dailyTimeLimitMinutes) {
+      const playMinutes = (player.totalPlayTimeSeconds ?? 0) / 60
+      if (playMinutes >= parentSettings.dailyTimeLimitMinutes) {
+        navigate('main_menu')
+      }
+    }
+  }, [screen, player?.totalPlayTimeSeconds, parentSettings.dailyTimeLimitMinutes])
 
   const screens: Record<string, React.ReactNode> = {
     splash:               <SplashScreen />,
@@ -35,9 +58,39 @@ export default function App() {
     parent_dashboard:     <ParentDashboard />,
   }
 
+  // 2F-6: Time limit reached screen
+  const isTimeLimitReached = player && parentSettings.dailyTimeLimitMinutes &&
+    (player.totalPlayTimeSeconds ?? 0) / 60 >= parentSettings.dailyTimeLimitMinutes &&
+    ['battle', 'world_map', 'region_detail'].includes(screen)
+
   return (
-    <div className="w-full h-full overflow-hidden">
-      {screens[screen] ?? <SplashScreen />}
+    <div className="w-full h-full overflow-hidden relative">
+      {/* 2F-11: Offline banner */}
+      {!isOnline && (
+        <div className="fixed top-0 left-0 right-0 z-50 text-center py-1 font-nunito text-xs"
+          style={{ background: '#FF6B35', color: 'white' }}>
+          📵 Offline — progress saves locally
+        </div>
+      )}
+      {/* 2F-6: Daily time limit reached overlay */}
+      {isTimeLimitReached ? (
+        <div className="h-full flex flex-col items-center justify-center px-6"
+          style={{ background: 'linear-gradient(180deg,#1a0e3a 0%,#2D1B69 100%)' }}>
+          <div className="text-5xl mb-4">⏰</div>
+          <h1 className="font-fredoka text-3xl text-white mb-2">Time's Up!</h1>
+          <p className="font-nunito text-sm text-center mb-8" style={{ color: 'rgba(255,255,255,0.6)' }}>
+            You've reached today's play limit of {parentSettings.dailyTimeLimitMinutes} minutes.
+            Come back tomorrow!
+          </p>
+          <button onClick={() => navigate('main_menu')}
+            className="w-full font-fredoka text-lg py-4 rounded-2xl text-white"
+            style={{ background: '#FF6B35' }}>
+            Go to Menu
+          </button>
+        </div>
+      ) : (
+        screens[screen] ?? <SplashScreen />
+      )}
     </div>
   )
 }

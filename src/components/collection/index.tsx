@@ -263,9 +263,110 @@ export const CollectionPets: React.FC = () => {
   const navigate     = useGameStore(s => s.navigate)
   const activatePet  = useGameStore(s => s.activatePet)
   const deactivatePet = useGameStore(s => s.deactivatePet)
+  const ownedPetsMap  = useGameStore(s => s.ownedPets)   // 2F-6
   if (!player) return null
 
+  const PET_EXP_PER_LEVEL = 50
   const ownedPetIds = player.ownedPets
+
+  return (
+    <div className="h-full flex flex-col" style={{ background: '#FFF8F0' }}>
+      <div className="px-4 pt-5 pb-4 flex items-center gap-3" style={{ background: '#2D1B69' }}>
+        <button onClick={() => navigate('main_menu')} className="text-2xl text-white">←</button>
+        <h1 className="font-fredoka text-xl text-white flex-1">🐾 Pets</h1>
+        <div className="font-nunito text-xs" style={{ color: 'rgba(255,255,255,0.6)' }}>
+          Active: {player.activePets.length}/3
+        </div>
+      </div>
+
+      {/* Active slots */}
+      <div className="px-4 py-3 flex gap-3" style={{ background: '#2D1B69', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+        {[0,1,2].map(i => {
+          const petId = player.activePets[i]
+          const pet   = petId ? PETS_DATA.find(p => p.id === petId) : null
+          const petData = petId ? ownedPetsMap[petId] : null
+          return (
+            <div key={i} className="flex-1 rounded-xl p-2 text-center"
+              style={{ background: pet ? 'rgba(255,107,53,0.3)' : 'rgba(255,255,255,0.1)',
+                       border: pet ? '1.5px solid #FF6B35' : '1.5px dashed rgba(255,255,255,0.2)' }}>
+              <div className="text-xl">{pet ? pet.emoji : '➕'}</div>
+              <div className="font-nunito text-xs mt-0.5" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                {pet ? pet.name : 'Empty'}
+              </div>
+              {petData && <div className="font-fredoka text-xs" style={{ color: '#FFE66D' }}>Lv.{petData.level}</div>}
+            </div>
+          )
+        })}
+      </div>
+
+      <div className="flex-1 scroll-y px-4 py-4">
+        {ownedPetIds.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-40 gap-2">
+            <span className="text-4xl">🐾</span>
+            <p className="font-nunito text-sm text-center" style={{ color: '#aaa' }}>
+              No pets yet. Level up and defeat bosses to find pets!
+            </p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3">
+            {ownedPetIds.map(petId => {
+              const pet    = PETS_DATA.find(p => p.id === petId)
+              if (!pet) return null
+              const active  = player.activePets.includes(petId)
+              // 2F-6: pet levelling data
+              const petSave = ownedPetsMap[petId]
+              const petLevel = petSave?.level ?? 1
+              const petExp   = petSave?.exp   ?? 0
+              const isMaxLevel = petLevel >= pet.maxLevel
+              const expPct = isMaxLevel ? 100 : Math.min(100, (petExp / PET_EXP_PER_LEVEL) * 100)
+              return (
+                <div key={petId} className="rounded-2xl p-4"
+                  style={{ background: 'white', border: active ? '2px solid #FF6B35' : '1px solid rgba(45,27,105,0.08)' }}>
+                  <div className="flex items-center gap-4 mb-2">
+                    <span className="text-4xl">{pet.emoji}</span>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-fredoka text-base" style={{ color: '#2D1B69' }}>{pet.name}</span>
+                        {isMaxLevel
+                          ? <span className="rounded-full px-2 py-0.5 font-fredoka text-xs" style={{ background: '#FFE66D', color: '#5a3e00' }}>MAX</span>
+                          : <span className="font-fredoka text-sm" style={{ color: '#FF6B35' }}>Lv.{petLevel}</span>
+                        }
+                      </div>
+                      <div className="font-nunito text-xs mt-0.5" style={{ color: '#888' }}>
+                        {pet.passiveAbility.description}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => active ? deactivatePet(petId) : activatePet(petId)}
+                      className="px-3 py-2 rounded-xl font-nunito text-sm font-bold active:scale-95"
+                      style={active
+                        ? { background: 'rgba(255,77,109,0.12)', color: '#FF4D6D' }
+                        : { background: '#FF6B35', color: 'white' }}>
+                      {active ? 'Remove' : 'Activate'}
+                    </button>
+                  </div>
+                  {/* 2F-6: EXP bar */}
+                  {!isMaxLevel && (
+                    <div>
+                      <div className="flex justify-between mb-1">
+                        <span className="font-nunito text-xs" style={{ color: '#aaa' }}>EXP to next level</span>
+                        <span className="font-nunito text-xs" style={{ color: '#888' }}>{petExp}/{PET_EXP_PER_LEVEL}</span>
+                      </div>
+                      <div className="h-1.5 rounded-full overflow-hidden" style={{ background: '#eee' }}>
+                        <div className="h-full rounded-full transition-all duration-500"
+                          style={{ width: `${expPct}%`, background: '#FF6B35' }} />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
 
   return (
     <div className="h-full flex flex-col" style={{ background: '#FFF8F0' }}>
