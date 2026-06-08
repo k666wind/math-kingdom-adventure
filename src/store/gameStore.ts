@@ -3,7 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware'
 import { updateAccountMeta } from './accountManager'
 import type {
   Player, BattleState, NavigationState, AppScreen,
-  TopicProgress, RegionId, DifficultyLevel,
+  TopicProgress, PracticeSession, RegionId, DifficultyLevel, QuestionType, QuestionTier,
   ParentSettings, QuestionResult,
   EquipmentSlot, OwnedPet, DailyChallenge, Reward, WeeklyChallenge,
   ExamConfig, ExamSession, ExamResult,
@@ -211,6 +211,8 @@ interface GameStore {
   unlockedAchievements: string[]
   // 2G-1: Exam state
   examSession: ExamSession | null
+  // 2I-1: Practice Mode
+  practiceSession: PracticeSession | null
 
   _unlockAch: (id: string) => void
   navigate: (screen: AppScreen, extra?: Partial<NavigationState>) => void
@@ -249,6 +251,13 @@ interface GameStore {
   // 2F-2: Weekly challenge
   claimWeeklyChallenge: () => void
   refreshWeeklyChallenge: () => void
+  // 2I-1: Practice Mode actions
+  startPractice: (topic: QuestionType, tier: QuestionTier, mode: 'free' | 'srs_review') => void
+  submitPracticeAnswer: (selectedIndex: number) => boolean
+  endPractice: () => void
+  // 2I-2: SRS
+  updateTopicSRS: (topic: QuestionType, tier: QuestionTier, correct: boolean) => void
+  getDueTopics: () => Array<{ type: QuestionType; tier: QuestionTier }>
   // 2G-1: Exam actions
   startExam: (config: ExamConfig) => void
   submitExamAnswer: (questionIndex: number, selectedIndex: number) => void
@@ -274,6 +283,7 @@ export const useGameStore = create<GameStore>()(
       todayStats: defaultTodayStats(),
       unlockedAchievements: [],
       examSession: null,
+      practiceSession: null,
 
       _unlockAch: (id: string) =>
         set(s => s.unlockedAchievements.includes(id) ? {} : { unlockedAchievements: [...s.unlockedAchievements, id] }),
@@ -495,8 +505,14 @@ export const useGameStore = create<GameStore>()(
           type: q.type, tier: q.tier, difficulty: q.difficulty,
           totalAnswered: 0, totalCorrect: 0,
           consecutiveCorrect: 0, lastAttemptedAt: null, masteryScore: 0,
+          srsBox: 1, nextReviewAt: new Date().toISOString(),
         }
         const newConsec = correct ? prevTp.consecutiveCorrect + 1 : 0
+        const srsDays = [0, 1, 2, 4, 7, 99]
+        const srsBox = prevTp.srsBox ?? 1
+        const newSrsBox = correct ? Math.min(5, srsBox + 1) : 1
+        const srsNext = new Date()
+        srsNext.setDate(srsNext.getDate() + srsDays[newSrsBox])
         const newTp: TopicProgress = {
           ...prevTp,
           totalAnswered: prevTp.totalAnswered + 1,
@@ -505,6 +521,8 @@ export const useGameStore = create<GameStore>()(
           lastAttemptedAt: new Date().toISOString(),
           masteryScore: Math.min(100, prevTp.masteryScore + (correct ? 5 : -3)),
           difficulty: newConsec >= 6 ? 'gold' : newConsec >= 3 ? 'silver' : 'bronze',
+          srsBox: newSrsBox,
+          nextReviewAt: srsNext.toISOString(),
         }
 
         const result: QuestionResult = {
@@ -1142,6 +1160,119 @@ export const useGameStore = create<GameStore>()(
       },
 
       clearExam: () => set({ examSession: null }),
+
+      // ── 2I-2: Spaced Repetition ──────────────────────────────
+      updateTopicSRS: (topic, tier, correct) => {
+        const key = `${topic}_${tier}`
+        const tp = get().topicProgress[key]
+        if (!tp) return
+        const SRS_DAYS = [0, 1, 2, 4, 7, 99]
+        const currentBox = tp.srsBox ?? 1
+        const newBox = correct ? Math.min(5, currentBox + 1) : 1
+        const daysUntilReview = SRS_DAYS[newBox]
+        const next = new Date()
+        next.setDate(next.getDate() + daysUntilReview)
+        set(s => ({
+          topicProgress: {
+            ...s.topicProgress,
+            [key]: { ...s.topicProgress[key], srsBox: newBox, nextReviewAt: next.toISOString() }
+          }
+        }))
+      },
+
+      getDueTopics: () => {
+        const now = new Date().toISOString()
+        return Object.values(get().topicProgress)
+          .filter(tp => !tp.nextReviewAt || tp.nextReviewAt <= now)
+          .map(tp => ({ type: tp.type, tier: tp.tier }))
+      },
+
+      // ── 2I-1: Practice Mode ───────────────────────────────────
+      startPractice: (topic, tier, mode) => {
+        const tpKey = `${topic}_${tier}`
+        const tp = get().topicProgress[tpKey]
+        const diff: DifficultyLevel = tp
+          ? tp.consecutiveCorrect >= 6 ? 'gold' : tp.consecutiveCorrect >= 3 ? 'silver' : 'bronze'
+          : 'bronze'
+        const question = generateQuestion(topic, diff)
+        set({
+          practiceSession: {
+            topic, tier, currentQuestion: question,
+            questions: [], streak: 0,
+            startedAt: new Date().toISOString(), mode
+          },
+          nav: { screen: 'practice_active' }
+        })
+      },
+
+      submitPracticeAnswer: (selectedIndex) => {
+        const { practiceSession, topicProgress } = get()
+        if (!practiceSession || !practiceSession.currentQuestion) return false
+        const q = practiceSession.currentQuestion
+        const correct = selectedIndex === q.correctIndex
+        const tpKey = `${practiceSession.topic}_${practiceSession.tier}`
+
+        const result: QuestionResult = {
+          questionId: q.id,
+          questionType: q.type,
+          selectedAnswer: q.answers[selectedIndex] ?? '',
+          correctAnswer: q.answers[q.correctIndex],
+          isCorrect: correct,
+          timeRemaining: 0,
+          timestamp: new Date().toISOString(),
+        }
+
+        const prevTp = topicProgress[tpKey] ?? {
+          type: practiceSession.topic, tier: practiceSession.tier, difficulty: 'bronze' as DifficultyLevel,
+          totalAnswered: 0, totalCorrect: 0, consecutiveCorrect: 0,
+          lastAttemptedAt: null, masteryScore: 0, srsBox: 1,
+          nextReviewAt: new Date().toISOString(),
+        }
+        const newConsec = correct ? prevTp.consecutiveCorrect + 1 : 0
+        const SRS_DAYS = [0, 1, 2, 4, 7, 99]
+        const currentBox = prevTp.srsBox ?? 1
+        const newBox = correct ? Math.min(5, currentBox + 1) : 1
+        const nextDate = new Date()
+        nextDate.setDate(nextDate.getDate() + SRS_DAYS[newBox])
+        const newTp: TopicProgress = {
+          ...prevTp,
+          totalAnswered: prevTp.totalAnswered + 1,
+          totalCorrect: prevTp.totalCorrect + (correct ? 1 : 0),
+          consecutiveCorrect: newConsec,
+          lastAttemptedAt: new Date().toISOString(),
+          masteryScore: Math.min(100, prevTp.masteryScore + (correct ? 5 : -3)),
+          difficulty: newConsec >= 6 ? 'gold' : newConsec >= 3 ? 'silver' : 'bronze',
+          srsBox: newBox,
+          nextReviewAt: nextDate.toISOString(),
+        }
+
+        const newQuestions = [...practiceSession.questions, result]
+        let expGained = 0
+        if (newQuestions.length % 10 === 0) {
+          const batchCorrect = newQuestions.slice(-10).filter(r => r.isCorrect).length
+          expGained = Math.floor(25 * (batchCorrect / 10))
+        }
+
+        // Next question for the session
+        const nextDiff: DifficultyLevel = newConsec >= 6 ? 'gold' : newConsec >= 3 ? 'silver' : 'bronze'
+        const nextQuestion = generateQuestion(practiceSession.topic, nextDiff)
+
+        set(s => ({
+          practiceSession: s.practiceSession ? {
+            ...s.practiceSession,
+            questions: newQuestions,
+            streak: correct ? s.practiceSession.streak + 1 : 0,
+            currentQuestion: nextQuestion,
+          } : null,
+          topicProgress: { ...s.topicProgress, [tpKey]: newTp },
+          player: s.player && expGained > 0
+            ? { ...s.player, exp: s.player.exp + expGained }
+            : s.player,
+        }))
+        return correct
+      },
+
+      endPractice: () => set({ practiceSession: null, nav: { screen: 'practice_results' } }),
 
       // ── Parent ───────────────────────────────────────────────
       setParentPin: (pin) =>

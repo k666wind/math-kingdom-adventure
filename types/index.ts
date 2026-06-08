@@ -33,6 +33,9 @@ export interface TopicProgress {
   consecutiveCorrect: number
   lastAttemptedAt: string|null
   masteryScore: number
+  // 2I-2: Spaced Repetition (Leitner box)
+  srsBox: number        // 1–5; 1=daily, 2=2days, 3=4days, 4=7days, 5=mastered
+  nextReviewAt: string  // ISO date string
 }
 
 export interface Player {
@@ -364,6 +367,17 @@ export interface AccountMeta {
   level: number        // player.level (for display)
 }
 
+// 2I-1: Practice Mode
+export interface PracticeSession {
+  topic: QuestionType
+  tier: QuestionTier
+  currentQuestion: Question | null
+  questions: QuestionResult[]
+  streak: number
+  startedAt: string
+  mode: 'free' | 'srs_review'  // free = any question, srs_review = due topics only
+}
+
 export type AppScreen =
   |'splash'|'onboarding_welcome'|'onboarding_name'
   |'main_menu'|'world_map'|'region_detail'|'battle'|'level_up'
@@ -371,6 +385,8 @@ export type AppScreen =
   |'daily_challenges'|'achievements'|'parent_pin'|'parent_dashboard'
   |'exam_setup'|'exam_active'|'exam_results'
   |'account_select'
+  |'practice_select'|'practice_active'|'practice_results'
+
 
 export interface NavigationState {
   screen: AppScreen
