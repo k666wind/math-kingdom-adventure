@@ -126,6 +126,19 @@ export const BattleScreen: React.FC = () => {
     }
   }, [battle?.timerReduction])
 
+  // 2E-5: crystal float on victory + sfx (must be before any conditional returns)
+  useEffect(() => {
+    if (battle?.status === 'victory') {
+      if (battle.drops && battle.drops.length > 0) setTimeout(() => sfx.drop(), 800)
+      const crystalDrop = battle.drops?.find(d => d.startsWith('💎'))
+      if (crystalDrop) {
+        sfx.crystal()
+        floatKey.current++
+        setCrystalFloat({ val: crystalDrop, key: floatKey.current })
+      }
+    }
+  }, [battle?.status])
+
   // Reset when new question arrives
   useEffect(() => {
     if (battle?.status === 'question' && battle.currentQuestion) {
@@ -290,19 +303,6 @@ export const BattleScreen: React.FC = () => {
   const q = battle.currentQuestion
   const isVictory = battle.status === 'victory'
   const isDefeat  = battle.status === 'defeat'
-
-  // 2E-5: crystal float on victory + sfx
-  useEffect(() => {
-    if (isVictory) {
-      if (battle.drops && battle.drops.length > 0) setTimeout(() => sfx.drop(), 800)
-      const crystalDrop = battle.drops?.find(d => d.startsWith('💎'))
-      if (crystalDrop) {
-        sfx.crystal()  // 2E-9
-        floatKey.current++
-        setCrystalFloat({ val: crystalDrop, key: floatKey.current })
-      }
-    }
-  }, [isVictory])
 
   // ── Victory Screen ──────────────────────────────────────────
   if (isVictory) {
