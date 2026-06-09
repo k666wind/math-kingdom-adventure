@@ -1,12 +1,11 @@
 import React, { useState } from 'react'
-import type { QuestionTier, QuestionType } from '../../types'
 import { APP_FULL } from '../../version'
 import { useGameStore } from '../../store/gameStore'
 import { setSfxVolume, setBgmEnabled } from '../../engine/audioEngine'
 import { SwitchAccountButton, AccountPINManager } from '../accounts'
 import { getActiveAccountId } from '../../store/accountManager'
 
-type Tab = 'overview' | 'topics' | 'settings' | 'progress' | 'trends' | 'curriculum'
+type Tab = 'overview' | 'topics' | 'settings' | 'progress'
 
 const PIN_LENGTH = 4
 
@@ -95,7 +94,6 @@ export const ParentDashboard: React.FC = () => {
   const exportSave      = useGameStore(s => s.exportSave)
   const importSave      = useGameStore(s => s.importSave)
   const setPlayerLevel  = useGameStore(s => s.setPlayerLevel)
-  const startPractice   = useGameStore(s => s.startPractice)
   const setPlayerGold   = useGameStore(s => s.setPlayerGold)       // BUG-B
   const setPlayerCrystals = useGameStore(s => s.setPlayerCrystals) // BUG-B
   const [tab, setTab]   = useState<Tab>('overview')
@@ -169,13 +167,13 @@ export const ParentDashboard: React.FC = () => {
 
       {/* Tabs */}
       <div className="flex bg-white overflow-x-auto" style={{ borderBottom: '1px solid #e0e0e0' }}>
-        {(['overview','topics','progress','trends','curriculum','settings'] as Tab[]).map(t => (
+        {(['overview','topics','progress','settings'] as Tab[]).map(t => (
           <button key={t} onClick={() => setTab(t)}
             className="flex-1 py-3 font-nunito text-xs capitalize transition-colors whitespace-nowrap px-2"
             style={{ color: tab===t ? '#2D1B69' : '#aaa',
                      borderBottom: tab===t ? '2px solid #2D1B69' : '2px solid transparent',
                      fontWeight: tab===t ? 700 : 400 }}>
-            {t === 'progress' ? '📊 Charts' : t === 'trends' ? '📈 Trends' : t === 'curriculum' ? '🗺️ Map' : t}
+            {t === 'progress' ? '📊 Charts' : t}
           </button>
         ))}
       </div>
@@ -334,196 +332,6 @@ export const ParentDashboard: React.FC = () => {
           </>
         )}
 
-        {/* ── TRENDS (2I-3) ── */}
-        {tab === 'trends' && (() => {
-          const history = player.examHistory ?? []
-          const W = 300, H = 120, PAD = 28
-          const toYv = (v: number) => H - PAD - (v / 100) * (H - PAD * 2)
-          const toXi = (i: number, count: number) => PAD + (count > 1 ? i * (W - PAD * 2) / (count - 1) : 0)
-          const COLORS = ['#6366f1','#10b981','#f59e0b','#ef4444','#a855f7','#06b6d4']
-
-          if (history.length === 0) return (
-            <div className="rounded-2xl p-6 bg-white text-center" style={{ border: '1px solid rgba(45,27,105,0.08)' }}>
-              <div style={{ fontSize: '48px', marginBottom: '12px' }}>📈</div>
-              <div className="font-fredoka text-sm" style={{ color: '#2D1B69' }}>No exam history yet</div>
-              <div className="font-nunito text-xs mt-1" style={{ color: '#888' }}>Complete a Mock Exam to see trend charts</div>
-            </div>
-          )
-
-          const scores = history.map(r => r.accuracy)
-          const pathD = scores.length > 1
-            ? 'M ' + scores.map((s, i) => `${toXi(i, scores.length)} ${toYv(s)}`).join(' L ')
-            : ''
-          const areaD = pathD
-            ? `${pathD} L ${toXi(scores.length-1, scores.length)} ${H-PAD} L ${toXi(0, scores.length)} ${H-PAD} Z`
-            : ''
-
-          const allTopicKeys = Array.from(new Set(history.flatMap(r => Object.keys(r.topicBreakdown)))).slice(0, 5)
-          const topicTrends = allTopicKeys.map(t => ({
-            name: t.replace(/_/g,' '),
-            data: history.map(r => {
-              const bd = r.topicBreakdown[t]
-              return bd && bd.attempted > 0 ? Math.round((bd.correct / bd.attempted) * 100) : null
-            })
-          }))
-
-          return (
-            <>
-              <div className="rounded-2xl p-4 bg-white mb-4" style={{ border: '1px solid rgba(45,27,105,0.08)' }}>
-                <div className="font-fredoka text-sm mb-3" style={{ color: '#2D1B69' }}>📈 Overall Score Trend</div>
-                <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ overflow: 'visible' }}>
-                  {[0,25,50,75,100].map(v => (
-                    <g key={v}>
-                      <line x1={PAD} y1={toYv(v)} x2={W-PAD} y2={toYv(v)} stroke="#e5e7eb" strokeWidth="1" strokeDasharray="3,3"/>
-                      <text x={PAD-4} y={toYv(v)+4} textAnchor="end" fontSize="9" fill="#9ca3af">{v}%</text>
-                    </g>
-                  ))}
-                  {areaD && <path d={areaD} fill="rgba(99,102,241,0.08)"/>}
-                  {pathD && <path d={pathD} fill="none" stroke="#6366f1" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>}
-                  {scores.map((s, i) => (
-                    <g key={i}>
-                      <circle cx={toXi(i,scores.length)} cy={toYv(s)} r="5" fill="#6366f1" stroke="#fff" strokeWidth="2"/>
-                      <text x={toXi(i,scores.length)} y={toYv(s)-9} textAnchor="middle" fontSize="9" fill="#6366f1" fontWeight="bold">{s}%</text>
-                    </g>
-                  ))}
-                  {history.map((r, i) => (
-                    <text key={i} x={toXi(i,history.length)} y={H-4} textAnchor="middle" fontSize="8" fill="#9ca3af">{r.date.slice(5)}</text>
-                  ))}
-                </svg>
-              </div>
-
-              {topicTrends.length > 0 && (
-                <div className="rounded-2xl p-4 bg-white mb-4" style={{ border: '1px solid rgba(45,27,105,0.08)' }}>
-                  <div className="font-fredoka text-sm mb-2" style={{ color: '#2D1B69' }}>🔍 Topic Breakdown</div>
-                  <div className="flex flex-wrap gap-2 mb-3">
-                    {topicTrends.map((t, i) => (
-                      <span key={t.name} className="font-nunito text-xs flex items-center gap-1">
-                        <span style={{ display:'inline-block', width:'10px', height:'3px', background:COLORS[i%COLORS.length], borderRadius:'2px' }}/>
-                        {t.name}
-                      </span>
-                    ))}
-                  </div>
-                  <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ overflow: 'visible' }}>
-                    {[0,50,100].map(v => (
-                      <line key={v} x1={PAD} y1={toYv(v)} x2={W-PAD} y2={toYv(v)} stroke="#e5e7eb" strokeWidth="1" strokeDasharray="3,3"/>
-                    ))}
-                    {topicTrends.map((t, ti) => {
-                      const pts2 = t.data.map((v,i) => v!==null ? {x:toXi(i,history.length),y:toYv(v)} : null).filter(Boolean) as {x:number,y:number}[]
-                      if (pts2.length < 2) return null
-                      const d2 = 'M ' + pts2.map(p=>`${p.x} ${p.y}`).join(' L ')
-                      return (
-                        <g key={t.name}>
-                          <path d={d2} fill="none" stroke={COLORS[ti%COLORS.length]} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity="0.8"/>
-                          {pts2.map((p,i)=><circle key={i} cx={p.x} cy={p.y} r="3.5" fill={COLORS[ti%COLORS.length]} stroke="#fff" strokeWidth="1.5"/>)}
-                        </g>
-                      )
-                    })}
-                    {history.map((r,i)=>(
-                      <text key={i} x={toXi(i,history.length)} y={H-4} textAnchor="middle" fontSize="8" fill="#9ca3af">{r.date.slice(5)}</text>
-                    ))}
-                  </svg>
-                </div>
-              )}
-
-              <div className="rounded-2xl p-4 bg-white" style={{ border: '1px solid rgba(45,27,105,0.08)' }}>
-                <div className="font-fredoka text-sm mb-3" style={{ color: '#2D1B69' }}>📋 All Exams</div>
-                {[...history].reverse().map(r => (
-                  <div key={r.id} className="rounded-xl p-3 mb-2" style={{ background: 'rgba(45,27,105,0.04)' }}>
-                    <div className="flex justify-between">
-                      <span className="font-nunito text-xs font-bold" style={{ color:'#2D1B69' }}>{r.config.yearGroup} · {r.config.examBoard} · {r.totalQuestions}Q</span>
-                      <span className="font-nunito text-xs font-bold" style={{ color:r.accuracy>=80?'#2d7a3f':r.accuracy>=60?'#7a5c00':'#cc2244' }}>{r.correctAnswers}/{r.totalQuestions} ({r.accuracy}%)</span>
-                    </div>
-                    <div className="font-nunito text-xs mt-0.5" style={{ color:'#888' }}>{r.date} · {Math.floor(r.timeTakenSeconds/60)}m {r.timeTakenSeconds%60}s</div>
-                    <div className="h-1.5 rounded-full mt-1.5 overflow-hidden" style={{ background:'rgba(45,27,105,0.1)' }}>
-                      <div className="h-full rounded-full" style={{ width:`${r.accuracy}%`, background:r.accuracy>=80?'#6BCB77':r.accuracy>=60?'#FFE66D':'#FF4D6D' }}/>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </>
-          )
-        })()}
-
-        {/* ── CURRICULUM MAP (2I-4) ── */}
-        {tab === 'curriculum' && (() => {
-          const YEARS: QuestionTier[] = ['Y3','Y4','Y5','Y6','Y7','Y8','Y9','Y10','Y11']
-          const TOPIC_GROUPS = [
-            { label: 'Number',     topics: ['addition','subtraction','multiplication','division','long_division','fractions','decimals','percentages','ratio','negative_numbers','factors_primes','roman_numerals'] },
-            { label: 'Algebra',    topics: ['algebra','algebraic_expressions','sequences','quadratics','simultaneous','bodmas','function_machines'] },
-            { label: 'Geometry',   topics: ['geometry_area','geometry_angles','volume_3d','coordinates'] },
-            { label: 'Data',       topics: ['statistics','probability','venn_diagrams'] },
-            { label: 'Word Probs', topics: ['worded_1step','worded_2step','worded_3step','money_problems','time_problems'] },
-          ]
-
-          const getCellAcc = (topic: string, year: string): number | null => {
-            const tp = topicProgress[`${topic}_${year}`]
-            if (!tp || tp.totalAnswered === 0) return null
-            return Math.round((tp.totalCorrect / tp.totalAnswered) * 100)
-          }
-
-          const cellBg = (acc: number | null) => {
-            if (acc === null) return '#f3f4f6'
-            if (acc >= 80) return '#d1fae5'
-            if (acc >= 50) return '#fef3c7'
-            return '#fee2e2'
-          }
-          const cellColor = (acc: number | null) => {
-            if (acc === null) return '#9ca3af'
-            if (acc >= 80) return '#065f46'
-            if (acc >= 50) return '#78350f'
-            return '#991b1b'
-          }
-
-          return (
-            <div>
-              <div className="font-fredoka text-sm mb-1" style={{ color: '#2D1B69' }}>🗺️ Curriculum Map</div>
-              <div className="font-nunito text-xs mb-3" style={{ color: '#888' }}>
-                Tap a cell to practice that topic. Colour: 🟩 ≥80% · 🟨 50–79% · 🟥 &lt;50% · ⬜ not started
-              </div>
-              {TOPIC_GROUPS.map(group => (
-                <div key={group.label} className="rounded-2xl p-3 bg-white mb-3" style={{ border: '1px solid rgba(45,27,105,0.08)' }}>
-                  <div className="font-fredoka text-xs mb-2" style={{ color: '#2D1B69' }}>{group.label}</div>
-                  {/* Year header row */}
-                  <div style={{ display: 'grid', gridTemplateColumns: `80px repeat(${YEARS.length}, 1fr)`, gap: '2px', marginBottom: '2px' }}>
-                    <div/>
-                    {YEARS.map(y => (
-                      <div key={y} className="font-nunito text-center" style={{ fontSize: '9px', color: '#6b7280', fontWeight: 'bold' }}>{y}</div>
-                    ))}
-                  </div>
-                  {/* Topic rows */}
-                  {group.topics.map(topic => (
-                    <div key={topic} style={{ display: 'grid', gridTemplateColumns: `80px repeat(${YEARS.length}, 1fr)`, gap: '2px', marginBottom: '2px' }}>
-                      <div className="font-nunito" style={{ fontSize: '9px', color: '#4b5563', display: 'flex', alignItems: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {topic.replace(/_/g,' ')}
-                      </div>
-                      {YEARS.map(year => {
-                        const acc = getCellAcc(topic, year)
-                        const tier = year as QuestionTier
-                        return (
-                          <button
-                            key={year}
-                            onClick={() => {
-                              startPractice(topic as QuestionType, tier, 'free')
-                            }}
-                            title={acc !== null ? `${acc}%` : 'Not started'}
-                            style={{
-                              background: cellBg(acc), borderRadius: '3px', border: 'none',
-                              height: '22px', cursor: 'pointer', fontSize: '8px',
-                              color: cellColor(acc), fontWeight: 'bold',
-                            }}
-                          >
-                            {acc !== null ? `${acc}%` : ''}
-                          </button>
-                        )
-                      })}
-                    </div>
-                  ))}
-                </div>
-              ))}
-            </div>
-          )
-        })()}
-
         {/* ── SETTINGS ── */}
         {tab === 'settings' && (
           <div className="flex flex-col gap-4">
@@ -673,13 +481,6 @@ export const ParentDashboard: React.FC = () => {
               className="w-full py-3.5 rounded-2xl font-nunito text-sm font-bold active:scale-95"
               style={{ background: 'rgba(45,27,105,0.08)', color: '#2D1B69' }}>
               🔒 Change PIN
-            </button>
-
-            {/* 2I-6: Print Report */}
-            <button onClick={() => window.print()}
-              className="w-full py-3.5 rounded-2xl font-nunito text-sm font-bold active:scale-95"
-              style={{ background: 'rgba(99,102,241,0.12)', color: '#3730a3', border: '1px solid rgba(99,102,241,0.4)', marginBottom: '8px' }}>
-              🖨️ Print Progress Report
             </button>
 
             {/* Export save */}

@@ -8,7 +8,7 @@ import type {
   EquipmentSlot, OwnedPet, DailyChallenge, Reward, WeeklyChallenge,
   ExamConfig, ExamSession, ExamResult,
 } from '../types'
-import { REGIONS, MONSTERS, EQUIPMENT_DATA, LEVEL_REWARDS, SKINS_DATA } from '../data/gameData'
+import { REGIONS, MONSTERS, EQUIPMENT_DATA, LEVEL_REWARDS, SKINS_DATA, getActiveSetBonuses, CRAFTING_RECIPES } from '../data/gameData'
 import { generateQuestion, getGeneratorsForYearGroup } from '../engine/questionGenerators'
 
 // ─── Helpers ─────────────────────────────────────────────────
@@ -38,6 +38,7 @@ const createDefaultPlayer = (name: string): Player => ({
   unlockedRegions: ['greenleaf_forest'],
   completedBattles: [],
   ownedEquipment: [],
+  craftingMaterials: {},
   ownedPets: [],
   ownedSkins: ['wizard'],    // 2E-13
   battleRecords: {},
@@ -211,7 +212,6 @@ interface GameStore {
   unlockedAchievements: string[]
   // 2G-1: Exam state
   examSession: ExamSession | null
-  // 2I-1: Practice Mode
   practiceSession: PracticeSession | null
 
   _unlockAch: (id: string) => void
@@ -251,6 +251,9 @@ interface GameStore {
   // 2F-2: Weekly challenge
   claimWeeklyChallenge: () => void
   refreshWeeklyChallenge: () => void
+  // 2I-8: Crafting
+  craftItem: (recipeId: string) => { success: boolean; message: string }
+  addCraftingMaterial: (itemId: string, count?: number) => void
   // 2I-1: Practice Mode actions
   startPractice: (topic: QuestionType, tier: QuestionTier, mode: 'free' | 'srs_review') => void
   submitPracticeAnswer: (selectedIndex: number) => boolean
@@ -442,6 +445,10 @@ export const useGameStore = create<GameStore>()(
         const newCombo = correct ? battle.comboCount + 1 : 0
         const comboMult = newCombo >= 10 ? 2.0 : newCombo >= 5 ? 1.5 : newCombo >= 3 ? 1.2 : 1.0
 
+        const _activeSets    = getActiveSetBonuses(Object.values(player.equippedItems))
+        const setAttackBonus = _activeSets.reduce((acc, st) => acc + (st.bonus.attack  ?? 0), 0)
+        const setDefBonus    = _activeSets.reduce((acc, st) => acc + (st.bonus.defence ?? 0), 0)
+        const setLuckBonus   = _activeSets.reduce((acc, st) => acc + (st.bonus.luckBonus ?? 0), 0)
         const weaponId = player.equippedItems.weapon
         const weaponData = weaponId ? EQUIPMENT_DATA.find(e => e.id === weaponId) : null
         const atkBonus   = weaponData?.stats.attack ?? 0
@@ -454,7 +461,7 @@ export const useGameStore = create<GameStore>()(
         let newBattle = { ...battle }
 
         if (correct) {
-          const baseDmg = player.attack + atkBonus
+          const baseDmg = player.attack + atkBonus + setAttackBonus
           // 2E-3: thunder_cat — +20% attack damage
           const thunderBoost = player.activePets.includes('thunder_cat') ? 1.2 : 1.0
           const dmg = Math.floor(baseDmg * (comboMult + comboBonus) * thunderBoost)
@@ -462,9 +469,10 @@ export const useGameStore = create<GameStore>()(
           const tierBonus = ['Y3','Y4','Y5','Y6','Y7','Y8'].indexOf(q.tier) * 5
           const expEquipBonus = EQUIPMENT_DATA.find(e => e.id === player.equippedItems.accessory)?.stats.expBonus ?? 0
           const petExpBoost   = player.activePets.includes('baby_dragon') ? 0.1 : 0
-          expGained = Math.floor((10 + tierBonus) * (1 + expEquipBonus / 100 + petExpBoost))
+          const setExpBonus   = getActiveSetBonuses(Object.values(player.equippedItems)).reduce((acc, st) => acc + (st.bonus.expBonus ?? 0), 0)
+          expGained = Math.floor((10 + tierBonus) * (1 + (expEquipBonus + setExpBonus) / 100 + petExpBoost))
           if (newCombo >= 10) {
-            const luckMult = 1 + (player.luckBonus + (player.activePets.includes('lucky_fox') ? 15 : 0)) / 100
+            const luckMult = 1 + (player.luckBonus + setLuckBonus + (player.activePets.includes('lucky_fox') ? 15 : 0)) / 100
             goldGained = Math.floor(20 * luckMult)
           }
           // 2E-3: healing_bunny — restore 10 HP on correct
@@ -472,8 +480,8 @@ export const useGameStore = create<GameStore>()(
             newPlayerHp = Math.min(player.maxHp, newPlayerHp + 10)
           }
         } else {
-          const def = player.equippedItems.armour
-            ? (EQUIPMENT_DATA.find(e => e.id === player.equippedItems.armour)?.stats.defence ?? 0) : 0
+          const def = (player.equippedItems.armour
+            ? (EQUIPMENT_DATA.find(e => e.id === player.equippedItems.armour)?.stats.defence ?? 0) : 0) + setDefBonus
           let baseDamage = Math.max(1, battle.monster.attackDamage - def)
 
           const ability = battle.monster.specialAbility
@@ -696,6 +704,10 @@ export const useGameStore = create<GameStore>()(
                   if (!newPlayer.ownedEquipment.includes(drop.itemId)) {
                     newPlayer = { ...newPlayer, ownedEquipment: [...newPlayer.ownedEquipment, drop.itemId] }
                     drops.push(drop.itemId)
+                  } else {
+                    // 2I-8: duplicate → crafting material
+                    const mats = (newPlayer as typeof player).craftingMaterials ?? {}
+                    newPlayer = { ...newPlayer, craftingMaterials: { ...mats, [drop.itemId]: (mats[drop.itemId] ?? 0) + 1 } } as typeof player
                   }
                 } else if (drop.itemType === 'pet_egg') {
                   const petId = drop.itemId.replace(/_egg$/, '')
@@ -1161,6 +1173,33 @@ export const useGameStore = create<GameStore>()(
 
       clearExam: () => set({ examSession: null }),
 
+      // ── 2I-8: Crafting ────────────────────────────────────────
+      addCraftingMaterial: (itemId, count = 1) => set(st => {
+        if (!st.player) return {}
+        const prev = st.player.craftingMaterials[itemId] ?? 0
+        return { player: { ...st.player, craftingMaterials: { ...st.player.craftingMaterials, [itemId]: prev + count } } }
+      }),
+      craftItem: (recipeId) => {
+        const { player } = get()
+        if (!player) return { success: false, message: 'No player' }
+        const recipe = CRAFTING_RECIPES.find(r => r.id === recipeId)
+        if (!recipe) return { success: false, message: 'Unknown recipe' }
+        if (player.level < recipe.requiredLevel) return { success: false, message: `Requires level ${recipe.requiredLevel}` }
+        for (const ing of recipe.ingredients) {
+          if ((player.craftingMaterials[ing.itemId] ?? 0) < ing.count) {
+            const item = EQUIPMENT_DATA.find(e => e.id === ing.itemId)
+            return { success: false, message: `Need ${ing.count}x ${item?.name ?? ing.itemId}` }
+          }
+        }
+        const newMats = { ...player.craftingMaterials }
+        for (const ing of recipe.ingredients) newMats[ing.itemId] = (newMats[ing.itemId] ?? 0) - ing.count
+        const newOwned = player.ownedEquipment.includes(recipe.outputItemId)
+          ? player.ownedEquipment : [...player.ownedEquipment, recipe.outputItemId]
+        set(st => ({ player: st.player ? { ...st.player, craftingMaterials: newMats, ownedEquipment: newOwned } : null }))
+        const outItem = EQUIPMENT_DATA.find(e => e.id === recipe.outputItemId)
+        return { success: true, message: `Crafted ${outItem?.emoji ?? ''} ${outItem?.name ?? recipe.outputItemId}!` }
+      },
+
       // ── 2I-2: Spaced Repetition ──────────────────────────────
       updateTopicSRS: (topic, tier, correct) => {
         const key = `${topic}_${tier}`
@@ -1169,17 +1208,10 @@ export const useGameStore = create<GameStore>()(
         const SRS_DAYS = [0, 1, 2, 4, 7, 99]
         const currentBox = tp.srsBox ?? 1
         const newBox = correct ? Math.min(5, currentBox + 1) : 1
-        const daysUntilReview = SRS_DAYS[newBox]
         const next = new Date()
-        next.setDate(next.getDate() + daysUntilReview)
-        set(s => ({
-          topicProgress: {
-            ...s.topicProgress,
-            [key]: { ...s.topicProgress[key], srsBox: newBox, nextReviewAt: next.toISOString() }
-          }
-        }))
+        next.setDate(next.getDate() + SRS_DAYS[newBox])
+        set(st => ({ topicProgress: { ...st.topicProgress, [key]: { ...st.topicProgress[key], srsBox: newBox, nextReviewAt: next.toISOString() } } }))
       },
-
       getDueTopics: () => {
         const now = new Date().toISOString()
         return Object.values(get().topicProgress)
@@ -1195,83 +1227,51 @@ export const useGameStore = create<GameStore>()(
           ? tp.consecutiveCorrect >= 6 ? 'gold' : tp.consecutiveCorrect >= 3 ? 'silver' : 'bronze'
           : 'bronze'
         const question = generateQuestion(topic, diff)
-        set({
-          practiceSession: {
-            topic, tier, currentQuestion: question,
-            questions: [], streak: 0,
-            startedAt: new Date().toISOString(), mode
-          },
-          nav: { screen: 'practice_active' }
-        })
+        set({ practiceSession: { topic, tier, currentQuestion: question, questions: [], streak: 0, startedAt: new Date().toISOString(), mode }, nav: { screen: 'practice_active' } })
       },
-
       submitPracticeAnswer: (selectedIndex) => {
         const { practiceSession, topicProgress } = get()
         if (!practiceSession || !practiceSession.currentQuestion) return false
         const q = practiceSession.currentQuestion
         const correct = selectedIndex === q.correctIndex
         const tpKey = `${practiceSession.topic}_${practiceSession.tier}`
-
         const result: QuestionResult = {
-          questionId: q.id,
-          questionType: q.type,
-          selectedAnswer: q.answers[selectedIndex] ?? '',
-          correctAnswer: q.answers[q.correctIndex],
-          isCorrect: correct,
-          timeRemaining: 0,
-          timestamp: new Date().toISOString(),
+          questionId: q.id, questionType: q.type,
+          selectedAnswer: q.answers[selectedIndex] ?? '', correctAnswer: q.answers[q.correctIndex],
+          isCorrect: correct, timeRemaining: 0, timestamp: new Date().toISOString(),
         }
-
         const prevTp = topicProgress[tpKey] ?? {
           type: practiceSession.topic, tier: practiceSession.tier, difficulty: 'bronze' as DifficultyLevel,
-          totalAnswered: 0, totalCorrect: 0, consecutiveCorrect: 0,
-          lastAttemptedAt: null, masteryScore: 0, srsBox: 1,
-          nextReviewAt: new Date().toISOString(),
+          totalAnswered: 0, totalCorrect: 0, consecutiveCorrect: 0, lastAttemptedAt: null, masteryScore: 0,
+          srsBox: 1, nextReviewAt: new Date().toISOString(),
         }
         const newConsec = correct ? prevTp.consecutiveCorrect + 1 : 0
         const SRS_DAYS = [0, 1, 2, 4, 7, 99]
-        const currentBox = prevTp.srsBox ?? 1
-        const newBox = correct ? Math.min(5, currentBox + 1) : 1
+        const newBox = correct ? Math.min(5, (prevTp.srsBox ?? 1) + 1) : 1
         const nextDate = new Date()
         nextDate.setDate(nextDate.getDate() + SRS_DAYS[newBox])
         const newTp: TopicProgress = {
-          ...prevTp,
-          totalAnswered: prevTp.totalAnswered + 1,
-          totalCorrect: prevTp.totalCorrect + (correct ? 1 : 0),
-          consecutiveCorrect: newConsec,
+          ...prevTp, totalAnswered: prevTp.totalAnswered + 1,
+          totalCorrect: prevTp.totalCorrect + (correct ? 1 : 0), consecutiveCorrect: newConsec,
           lastAttemptedAt: new Date().toISOString(),
           masteryScore: Math.min(100, prevTp.masteryScore + (correct ? 5 : -3)),
           difficulty: newConsec >= 6 ? 'gold' : newConsec >= 3 ? 'silver' : 'bronze',
-          srsBox: newBox,
-          nextReviewAt: nextDate.toISOString(),
+          srsBox: newBox, nextReviewAt: nextDate.toISOString(),
         }
-
         const newQuestions = [...practiceSession.questions, result]
         let expGained = 0
         if (newQuestions.length % 10 === 0) {
-          const batchCorrect = newQuestions.slice(-10).filter(r => r.isCorrect).length
-          expGained = Math.floor(25 * (batchCorrect / 10))
+          expGained = Math.floor(25 * (newQuestions.slice(-10).filter(r => r.isCorrect).length / 10))
         }
-
-        // Next question for the session
         const nextDiff: DifficultyLevel = newConsec >= 6 ? 'gold' : newConsec >= 3 ? 'silver' : 'bronze'
         const nextQuestion = generateQuestion(practiceSession.topic, nextDiff)
-
-        set(s => ({
-          practiceSession: s.practiceSession ? {
-            ...s.practiceSession,
-            questions: newQuestions,
-            streak: correct ? s.practiceSession.streak + 1 : 0,
-            currentQuestion: nextQuestion,
-          } : null,
-          topicProgress: { ...s.topicProgress, [tpKey]: newTp },
-          player: s.player && expGained > 0
-            ? { ...s.player, exp: s.player.exp + expGained }
-            : s.player,
+        set(st => ({
+          practiceSession: st.practiceSession ? { ...st.practiceSession, questions: newQuestions, streak: correct ? st.practiceSession.streak + 1 : 0, currentQuestion: nextQuestion } : null,
+          topicProgress: { ...st.topicProgress, [tpKey]: newTp },
+          player: st.player && expGained > 0 ? { ...st.player, exp: st.player.exp + expGained } : st.player,
         }))
         return correct
       },
-
       endPractice: () => set({ practiceSession: null, nav: { screen: 'practice_results' } }),
 
       // ── Parent ───────────────────────────────────────────────

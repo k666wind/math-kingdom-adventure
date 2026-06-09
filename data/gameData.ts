@@ -467,3 +467,46 @@ export const ACHIEVEMENTS_DATA = [
   { id:'topic_ace',       emoji:'🎯', name:'Topic Ace',            description:'10 consecutive correct on same topic',       category:'academic'  as const, reward:{ gold:75, crystals:1 } },
   { id:'pet_max',         emoji:'⭐', name:'Pet Elder',            description:'Max level any pet (Lv.10)',                  category:'collection' as const, reward:{ crystals:3 } },
 ]
+
+
+// ── 2I-7: Equipment Set Bonuses ──────────────────────────────
+
+export interface EquipmentSet {
+  id: string
+  name: string
+  emoji: string
+  itemIds: string[]
+  bonus: { attack?: number; hp?: number; defence?: number; expBonus?: number; luckBonus?: number; speedBonus?: number }
+  bonusDescription: string
+}
+
+export const EQUIPMENT_SETS: EquipmentSet[] = [
+  { id: 'shadow_set',  name: 'Shadow Set',  emoji: '🌑', itemIds: ['shadow_axe','shadow_cloak','lucky_boots'],   bonus: { attack: 8, luckBonus: 10 },        bonusDescription: '+8 ATK  +10 LUCK' },
+  { id: 'crystal_set', name: 'Crystal Set', emoji: '💎', itemIds: ['crystal_sword','crystal_armor','gold_ring'], bonus: { attack: 10, hp: 20, expBonus: 10 }, bonusDescription: '+10 ATK  +20 HP  +10% EXP' },
+  { id: 'scholar_set', name: 'Scholar Set', emoji: '🎓', itemIds: ['iron_sword','chain_mail','copper_ring'],     bonus: { expBonus: 20, defence: 4 },         bonusDescription: '+20% EXP  +4 DEF' },
+]
+
+export function getActiveSetBonuses(equippedIds: (string|null)[]): EquipmentSet[] {
+  const equipped = new Set(equippedIds.filter(Boolean) as string[])
+  return EQUIPMENT_SETS.filter(s => s.itemIds.every(id => equipped.has(id)))
+}
+
+// ── 2I-8: Crafting Recipes ────────────────────────────────────
+
+export interface CraftingRecipeData {
+  id: string
+  name: string
+  emoji: string
+  description: string
+  ingredients: Array<{ itemId: string; count: number }>
+  outputItemId: string
+  requiredLevel: number
+}
+
+export const CRAFTING_RECIPES: CraftingRecipeData[] = [
+  { id: 'craft_iron_sword',   name: 'Forge Iron Sword',    emoji: '⚔️',  description: '3x Wooden Sword → Iron Sword',                  ingredients: [{ itemId: 'wooden_sword',  count: 3 }],                                           outputItemId: 'iron_sword',    requiredLevel: 4  },
+  { id: 'craft_chain_mail',   name: 'Weave Chain Mail',    emoji: '🔗',  description: '3x Cloth Tunic → Chain Mail',                   ingredients: [{ itemId: 'cloth_tunic',   count: 3 }],                                           outputItemId: 'chain_mail',    requiredLevel: 6  },
+  { id: 'craft_gold_ring',    name: 'Cast Gold Ring',      emoji: '💍',  description: '3x Copper Ring → Gold Ring',                    ingredients: [{ itemId: 'copper_ring',   count: 3 }],                                           outputItemId: 'gold_ring',     requiredLevel: 7  },
+  { id: 'craft_shadow_axe',   name: 'Forge Shadow Axe',    emoji: '🪓',  description: '2x Iron Sword + Shadow Cloak → Shadow Axe',     ingredients: [{ itemId: 'iron_sword',    count: 2 }, { itemId: 'shadow_cloak',   count: 1 }], outputItemId: 'shadow_axe',    requiredLevel: 10 },
+  { id: 'craft_crystal_blade',name: 'Forge Crystal Blade', emoji: '🔮',  description: 'Crystal Sword + Crystal Armor → Crystal Blade', ingredients: [{ itemId: 'crystal_sword', count: 1 }, { itemId: 'crystal_armor', count: 1 }], outputItemId: 'crystal_blade', requiredLevel: 15 },
+]
