@@ -14,6 +14,96 @@ import { ExamSetupScreen, ExamActiveScreen, ExamResultsScreen } from './componen
 import { AccountSelectScreen } from './components/accounts'
 import { migrateLegacySaveIfNeeded, getAccounts, getActiveAccountId, setActiveAccountId } from './store/accountManager'
 
+
+// ── 2I-6: Print Report Component ────────────────────────────
+function PrintReport() {
+  const player        = useGameStore(s => s.player)
+  const topicProgress = useGameStore(s => s.topicProgress)
+  if (!player) return null
+
+  const topics = Object.values(topicProgress)
+    .filter(tp => tp.totalAnswered > 0)
+    .map(tp => ({
+      name: tp.type.replace(/_/g, ' '),
+      year: tp.tier,
+      acc:  Math.round((tp.totalCorrect / tp.totalAnswered) * 100),
+      box:  tp.srsBox ?? 1,
+    }))
+    .sort((a, b) => a.acc - b.acc)
+
+  const recentExams = (player.examHistory ?? []).slice(-5)
+  const overallAcc  = topics.length
+    ? Math.round(topics.reduce((s, t) => s + t.acc, 0) / topics.length)
+    : 0
+
+  return (
+    <div id="print-report-overlay">
+      <h1 style={{ fontSize: '20px', fontWeight: 'bold', marginBottom: '4px' }}>
+        Math Kingdom Adventure — Progress Report
+      </h1>
+      <p style={{ color: '#666', marginBottom: '16px' }}>
+        {player.name} · Level {player.level} · Generated {new Date().toLocaleDateString()}
+      </p>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginBottom: '20px' }}>
+        {[
+          { label: 'Current Level', value: `Lv ${player.level}` },
+          { label: 'Overall Accuracy', value: `${overallAcc}%` },
+          { label: 'Topics Practised', value: `${topics.length}` },
+        ].map(c => (
+          <div key={c.label} style={{ border: '1px solid #e5e7eb', borderRadius: '8px', padding: '12px', textAlign: 'center' }}>
+            <div style={{ fontSize: '22px', fontWeight: 'bold' }}>{c.value}</div>
+            <div style={{ color: '#6b7280', fontSize: '11px' }}>{c.label}</div>
+          </div>
+        ))}
+      </div>
+      {topics.length > 0 && (
+        <div style={{ marginBottom: '20px' }}>
+          <h2 style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '8px' }}>Topic Accuracy</h2>
+          {topics.map(t => (
+            <div key={`${t.name}-${t.year}`} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+              <span style={{ width: '140px', fontSize: '11px', textTransform: 'capitalize' }}>{t.name} ({t.year})</span>
+              <div style={{ flex: 1, height: '10px', background: '#e5e7eb', borderRadius: '4px', overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${t.acc}%`, background: t.acc >= 80 ? '#10b981' : t.acc >= 50 ? '#f59e0b' : '#ef4444', borderRadius: '4px' }} />
+              </div>
+              <span style={{ width: '35px', fontSize: '11px', textAlign: 'right', fontWeight: 'bold' }}>{t.acc}%</span>
+              <span style={{ width: '40px', fontSize: '10px', color: '#6b7280' }}>Box {t.box}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      {recentExams.length > 0 && (
+        <div>
+          <h2 style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '8px' }}>Recent Mock Exams</h2>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid #e5e7eb' }}>
+                {['Date','Year Group','Exam Board','Score','Accuracy','Time'].map(h => (
+                  <th key={h} style={{ padding: '4px 8px', textAlign: 'left', color: '#6b7280' }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {[...recentExams].reverse().map(r => (
+                <tr key={r.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
+                  <td style={{ padding: '4px 8px' }}>{r.date}</td>
+                  <td style={{ padding: '4px 8px' }}>{r.config.yearGroup}</td>
+                  <td style={{ padding: '4px 8px' }}>{r.config.examBoard}</td>
+                  <td style={{ padding: '4px 8px' }}>{r.correctAnswers}/{r.totalQuestions}</td>
+                  <td style={{ padding: '4px 8px', fontWeight: 'bold', color: r.accuracy >= 80 ? '#065f46' : r.accuracy >= 60 ? '#78350f' : '#991b1b' }}>{r.accuracy}%</td>
+                  <td style={{ padding: '4px 8px' }}>{Math.floor(r.timeTakenSeconds/60)}m {r.timeTakenSeconds%60}s</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <p style={{ marginTop: '24px', color: '#9ca3af', fontSize: '10px' }}>
+        Math Kingdom Adventure · {new Date().toLocaleString()}
+      </p>
+    </div>
+  )
+}
+
 export default function App() {
   const screen = useGameStore(s => s.nav.screen)
   const refreshDailyChallenges = useGameStore(s => s.refreshDailyChallenges)
@@ -21,27 +111,15 @@ export default function App() {
   const parentSettings = useGameStore(s => s.parentSettings)
   const navigate = useGameStore(s => s.navigate)
 
-  // 2I-10: Enhanced offline warning
-  const [isOnline,       setIsOnline]       = useState(navigator.onLine)
-  const [justReconnected, setJustReconnected] = useState(false)
-  const [offlineSeconds,  setOfflineSeconds]  = useState(0)
+  // 2F-11: Offline warning
+  const [isOnline, setIsOnline] = useState(navigator.onLine)
   useEffect(() => {
-    const on = () => {
-      setIsOnline(true)
-      setOfflineSeconds(0)
-      setJustReconnected(true)
-      setTimeout(() => setJustReconnected(false), 3000)
-    }
+    const on  = () => setIsOnline(true)
     const off = () => setIsOnline(false)
     window.addEventListener('online',  on)
     window.addEventListener('offline', off)
     return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off) }
   }, [])
-  useEffect(() => {
-    if (isOnline) return
-    const t = setInterval(() => setOfflineSeconds(s => s + 1), 1000)
-    return () => clearInterval(t)
-  }, [isOnline])
 
   // 2H-0: Account migration — run once on startup
   useEffect(() => {
@@ -106,29 +184,11 @@ export default function App() {
 
   return (
     <div className={`w-full h-full overflow-hidden relative font-scale-${fontScale}${highContrast ? ' high-contrast' : ''}`}>
-      {/* 2I-10: Enhanced offline banner */}
-      {justReconnected && (
-        <div className="fixed top-0 left-0 right-0 z-50 font-nunito text-xs text-center py-2"
-          style={{ background: '#10b981', color: 'white', animation: 'fadeInUp 0.3s ease-out' }}>
-          ✅ Back online!
-        </div>
-      )}
+      {/* 2F-11: Offline banner */}
       {!isOnline && (
-        <div className="fixed top-0 left-0 right-0 z-50 font-nunito text-xs"
-          style={{ background: '#b45309', color: 'white' }}>
-          <div className="flex items-center justify-between px-3 py-1.5">
-            <span>📵 Offline — progress saves locally</span>
-            <span style={{ opacity: 0.75 }}>
-              {offlineSeconds < 60
-                ? `${offlineSeconds}s`
-                : `${Math.floor(offlineSeconds/60)}m ${offlineSeconds%60}s`}
-            </span>
-          </div>
-          {(screen === 'exam_active') && (
-            <div className="text-center pb-1.5" style={{ fontSize: '10px', opacity: 0.85 }}>
-              ⚠️ Exam answers save locally — submit when reconnected
-            </div>
-          )}
+        <div className="fixed top-0 left-0 right-0 z-50 text-center py-1 font-nunito text-xs"
+          style={{ background: '#FF6B35', color: 'white' }}>
+          📵 Offline — progress saves locally
         </div>
       )}
       {/* 2F-6: Daily time limit reached overlay */}
@@ -150,6 +210,8 @@ export default function App() {
       ) : (
         screens[screen] ?? <SplashScreen />
       )}
+      {/* 2I-6: Print report overlay — invisible until window.print() */}
+      <PrintReport />
     </div>
   )
 }

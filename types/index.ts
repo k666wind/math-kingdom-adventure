@@ -60,7 +60,6 @@ export interface Player {
   unlockedRegions: RegionId[]
   completedBattles: string[]
   ownedEquipment: string[]
-  craftingMaterials: Record<string, number>  // 2I-8: spare copies
   ownedPets: string[]
   ownedSkins: string[]        // 2E-13: owned skin ids (default: ['wizard'])
   battleRecords: Record<string, BattleRecord>
@@ -368,17 +367,6 @@ export interface AccountMeta {
   level: number        // player.level (for display)
 }
 
-// 2I-8: Crafting
-export interface CraftingRecipe {
-  id: string
-  name: string
-  emoji: string
-  description: string
-  ingredients: Array<{ itemId: string; count: number }>
-  outputItemId: string
-  requiredLevel: number
-}
-
 // 2I-1: Practice Mode
 export interface PracticeSession {
   topic: QuestionType
@@ -398,7 +386,6 @@ export type AppScreen =
   |'exam_setup'|'exam_active'|'exam_results'
   |'account_select'
   |'practice_select'|'practice_active'|'practice_results'
-  |'pvp_setup'|'pvp_active'|'pvp_results'
 
 
 export interface NavigationState {
